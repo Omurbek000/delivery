@@ -24,6 +24,13 @@ class User(AbstractUser):
     photo = models.ImageField('Фото профиля', upload_to='users/', blank=True, null=True)
     address = models.CharField('Адрес доставки', max_length=255, blank=True)
 
+    groups = models.ManyToManyField(
+        'auth.Group', related_name='custom_user_set', blank=True,
+    )
+    user_permissions = models.ManyToManyField(
+        'auth.Permission', related_name='custom_user_permissions_set', blank=True,
+    )
+
     class Meta:
         verbose_name = 'Пользователь'
         verbose_name_plural = 'Пользователи'
