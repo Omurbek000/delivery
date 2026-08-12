@@ -14,7 +14,7 @@ class UserSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = User
-        fields = ('id', 'phone', 'first_name', 'last_name', 'photo', 'address')
+        fields = ('id', 'phone', 'first_name', 'last_name', 'photo')
 
 
 class RegisterSerializer(serializers.ModelSerializer):
@@ -26,10 +26,20 @@ class RegisterSerializer(serializers.ModelSerializer):
         model = User
         fields = ('id', 'phone', 'first_name', 'last_name', 'password')
 
+    def validate_password(self, value):
+        """Проверяет, что пароль не слишком короткий."""
+        if len(value) < 8:
+            raise serializers.ValidationError('Пароль должен быть не короче 8 символов')
+        return value
+
     def create(self, validated_data):
         """Создаёт пользователя, хешируя пароль через set_password."""
-        user = User.objects.create(**validated_data)
-        user.set_password(validated_data['password'])
+        password = validated_data.pop('password')
+        user = User.objects.create(
+            username=str(validated_data['phone']).replace('+', ''),
+            **validated_data,
+        )
+        user.set_password(password)
         user.save()
         return user
 
@@ -58,6 +68,21 @@ class CustomLoginSerializer(serializers.Serializer):
             'access': str(refresh.access_token),
             'refresh': str(refresh),
         }
+
+
+class LogoutSerializer(serializers.Serializer):
+    """Сериализатор выхода: принимает refresh токен для чёрного списка."""
+
+    refresh = serializers.CharField()
+
+    def validate_refresh(self, value):
+        """Проверяет refresh токен и помещает его в чёрный список."""
+        try:
+            token = RefreshToken(value)
+            token.blacklist()
+        except Exception:
+            raise serializers.ValidationError('Неверный или уже использованный токен')
+        return value
 
 
 # Меню
@@ -121,7 +146,8 @@ class OrderSerializer(serializers.ModelSerializer):
     class Meta:
         model = Order
         fields = (
-            'id', 'user', 'created_at', 'status', 'delivery_address',
+            'id', 'user', 'created_at', 'status',
+            'street', 'house', 'entrance', 'floor', 'apartment',
             'total_price', 'comment', 'order_item',
         )
 
@@ -140,7 +166,7 @@ class OrderCreateSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = Order
-        fields = ('delivery_address', 'comment', 'items')
+        fields = ('street', 'house', 'entrance', 'floor', 'apartment', 'comment', 'items')
 
     def validate_items(self, items):
         """Проверяет, что все блюда существуют и доступны."""

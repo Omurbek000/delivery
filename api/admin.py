@@ -45,7 +45,7 @@ class OrderAdmin(admin.ModelAdmin):
 
     list_display = ('id', 'user', 'status', 'total_price', 'created_at')
     list_filter = ('status',)
-    search_fields = ('user__phone', 'delivery_address')
+    search_fields = ('user__phone', 'street', 'house')
 
 
 @admin.register(OrderItem)

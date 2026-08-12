@@ -4,7 +4,7 @@ djangorestframework-simplejwt
 django-filter
 django-phonenumber-field
 phonenumberslite
-drf-spectacular
+drf-yasg
 Pillow
 django-allauth
 requests

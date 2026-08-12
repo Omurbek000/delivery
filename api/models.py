@@ -22,14 +22,6 @@ class User(AbstractUser):
 
     phone = PhoneNumberField('Номер телефона', unique=True, blank=True, null=True)
     photo = models.ImageField('Фото профиля', upload_to='users/', blank=True, null=True)
-    address = models.CharField('Адрес доставки', max_length=255, blank=True)
-
-    groups = models.ManyToManyField(
-        'auth.Group', related_name='custom_user_set', blank=True,
-    )
-    user_permissions = models.ManyToManyField(
-        'auth.Permission', related_name='custom_user_permissions_set', blank=True,
-    )
 
     class Meta:
         verbose_name = 'Пользователь'
@@ -112,7 +104,11 @@ class Order(models.Model):
     status = models.CharField(
         'Статус', max_length=20, choices=STATUS_CHOICES, default='created',
     )
-    delivery_address = models.CharField('Адрес доставки', max_length=255)
+    street = models.CharField('Улица', max_length=100)
+    house = models.CharField('Дом', max_length=20)
+    entrance = models.CharField('Подъезд', max_length=20, blank=True)
+    floor = models.CharField('Этаж', max_length=20, blank=True)
+    apartment = models.CharField('Квартира', max_length=20, blank=True)
     total_price = models.DecimalField(
         'Итоговая сумма', max_digits=10, decimal_places=2, default=0,
     )

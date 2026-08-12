@@ -12,6 +12,7 @@ from .serializers import (
     CustomLoginSerializer,
     DishSerializer,
     FavoriteSerializer,
+    LogoutSerializer,
     OrderCreateSerializer,
     OrderSerializer,
     RegisterSerializer,
@@ -44,26 +45,14 @@ class CustomLoginView(generics.GenericAPIView):
 class LogoutView(generics.GenericAPIView):
     """Выход: добавляет refresh токен в чёрный список."""
 
-    serializer_class = None
+    serializer_class = LogoutSerializer
     permission_classes = (IsAuthenticated,)
 
     def post(self, request):
         """Помечает refresh токен как недействительный."""
-        refresh = request.data.get('refresh')
-        if not refresh:
-            return Response(
-                {'detail': 'Передайте refresh токен'}, status=status.HTTP_400_BAD_REQUEST,
-            )
-        try:
-            from rest_framework_simplejwt.tokens import RefreshToken
-            token = RefreshToken(refresh)
-            token.blacklist()
-            return Response({'detail': 'Вы вышли из системы'}, status=status.HTTP_200_OK)
-        except Exception:
-            return Response(
-                {'detail': 'Неверный или уже использованный токен'},
-                status=status.HTTP_400_BAD_REQUEST,
-            )
+        serializer = self.get_serializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        return Response({'detail': 'Вы вышли из системы'}, status=status.HTTP_200_OK)
 
 
 # Меню
@@ -131,6 +120,8 @@ class FavoriteListView(generics.ListAPIView):
 
     def get_queryset(self):
         """Возвращает избранное только текущего пользователя."""
+        if getattr(self, 'swagger_fake_view', False):
+            return Favorite.objects.none()
         return Favorite.objects.filter(user=self.request.user)
 
 
@@ -163,6 +154,8 @@ class FavoriteDeleteView(generics.DestroyAPIView):
 
     def get_queryset(self):
         """Возвращает избранное только текущего пользователя."""
+        if getattr(self, 'swagger_fake_view', False):
+            return Favorite.objects.none()
         return Favorite.objects.filter(user=self.request.user)
 
 
@@ -188,6 +181,8 @@ class OrderListView(generics.ListAPIView):
 
     def get_queryset(self):
         """Клиент видит свои заказы, админ — все."""
+        if getattr(self, 'swagger_fake_view', False):
+            return Order.objects.none()
         if self.request.user.is_staff:
             return Order.objects.all()
         return Order.objects.filter(user=self.request.user)
@@ -201,6 +196,8 @@ class OrderDetailView(generics.RetrieveAPIView):
 
     def get_queryset(self):
         """Клиент видит свои заказы, админ — все."""
+        if getattr(self, 'swagger_fake_view', False):
+            return Order.objects.none()
         if self.request.user.is_staff:
             return Order.objects.all()
         return Order.objects.filter(user=self.request.user)
@@ -214,6 +211,8 @@ class OrderCancelView(generics.UpdateAPIView):
 
     def get_queryset(self):
         """Клиент может отменить только свой заказ."""
+        if getattr(self, 'swagger_fake_view', False):
+            return Order.objects.none()
         if self.request.user.is_staff:
             return Order.objects.all()
         return Order.objects.filter(user=self.request.user)
@@ -241,6 +240,8 @@ class OrderStatusView(generics.UpdateAPIView):
 
     def get_queryset(self):
         """Админ может менять статус любого заказа."""
+        if getattr(self, 'swagger_fake_view', False):
+            return Order.objects.none()
         if not self.request.user.is_staff:
             return Order.objects.none()
         return Order.objects.all()
