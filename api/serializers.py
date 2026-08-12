@@ -24,7 +24,7 @@ class RegisterSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = User
-        fields = ('phone', 'first_name', 'last_name', 'password')
+        fields = ('id', 'phone', 'first_name', 'last_name', 'password')
 
     def create(self, validated_data):
         """Создаёт пользователя, хешируя пароль через set_password."""
@@ -92,10 +92,13 @@ class FavoriteSerializer(serializers.ModelSerializer):
     """Сериализатор избранного блюда."""
 
     dish = DishSerializer(read_only=True)
+    dish_id = serializers.PrimaryKeyRelatedField(
+        queryset=Dish.objects.all(), write_only=True, source='dish',
+    )
 
     class Meta:
         model = Favorite
-        fields = ('id', 'dish', 'created_at')
+        fields = ('id', 'dish', 'dish_id', 'created_at')
 
 
 # Заказы
@@ -164,3 +167,7 @@ class OrderCreateSerializer(serializers.ModelSerializer):
         order.total_price = order.calculate_total()
         order.save()
         return order
+
+    def to_representation(self, instance):
+        """Возвращает заказ полностью — со статусом, суммой и позициями."""
+        return OrderSerializer(instance).data
