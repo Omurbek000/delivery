@@ -17,6 +17,47 @@ class UserSerializer(serializers.ModelSerializer):
         fields = ('id', 'phone', 'first_name', 'last_name', 'photo')
 
 
+class ProfileSerializer(serializers.ModelSerializer):
+    """Сериализатор профиля: просмотр и редактирование своих данных."""
+
+    class Meta:
+        model = User
+        fields = ('id', 'phone', 'first_name', 'last_name', 'photo')
+
+
+class ChangePasswordSerializer(serializers.Serializer):
+    """Сериализатор смены пароля."""
+
+    old_password = serializers.CharField(write_only=True)
+    new_password = serializers.CharField(write_only=True)
+
+    def validate_new_password(self, value):
+        """Проверяет, что новый пароль не слишком короткий."""
+        if len(value) < 8:
+            raise serializers.ValidationError('Пароль должен быть не короче 8 символов')
+        return value
+
+    def validate(self, attrs):
+        """Проверяет, что старый пароль введён верно."""
+        user = self.context['request'].user
+        if not user.check_password(attrs['old_password']):
+            raise serializers.ValidationError('Старый пароль введён неверно')
+        return attrs
+
+
+class ChangePhoneSerializer(serializers.Serializer):
+    """Сериализатор смены номера телефона."""
+
+    phone = PhoneNumberField()
+
+    def validate_phone(self, value):
+        """Проверяет, что номер свободен и не занят другим пользователем."""
+        user = self.context['request'].user
+        if User.objects.filter(phone=value).exclude(pk=user.pk).exists():
+            raise serializers.ValidationError('Этот номер уже занят другим пользователем')
+        return value
+
+
 class RegisterSerializer(serializers.ModelSerializer):
     """Сериализатор регистрации нового пользователя."""
 

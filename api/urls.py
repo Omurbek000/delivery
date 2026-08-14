@@ -12,6 +12,11 @@ urlpatterns = [
     path('logout/', views.LogoutView.as_view(), name='logout'),
     path('token/refresh/', TokenRefreshView.as_view(), name='token-refresh'),
 
+    # Профиль
+    path('profile/', views.ProfileView.as_view(), name='profile'),
+    path('profile/password/', views.ChangePasswordView.as_view(), name='change-password'),
+    path('profile/phone/', views.ChangePhoneView.as_view(), name='change-phone'),
+
     # Меню
     path('categories/', views.CategoryListView.as_view(), name='category-list'),
     path('categories/create/', views.CategoryCreateView.as_view(), name='category-create'),

@@ -1,20 +1,24 @@
 """Views приложения api."""
 
-from django.db.models import Q
+from django_filters.rest_framework import DjangoFilterBackend
 from rest_framework import generics, status
 from rest_framework.permissions import AllowAny, IsAuthenticated
 from rest_framework.response import Response
 
+from .filters import DishFilter, OrderFilter
 from .models import STATUS_CHOICES, Category, Dish, Favorite, Order
 from .permissions import IsAdminOrReadOnly, IsOwnerOrAdmin
 from .serializers import (
     CategorySerializer,
+    ChangePasswordSerializer,
+    ChangePhoneSerializer,
     CustomLoginSerializer,
     DishSerializer,
     FavoriteSerializer,
     LogoutSerializer,
     OrderCreateSerializer,
     OrderSerializer,
+    ProfileSerializer,
     RegisterSerializer,
     UserSerializer,
 )
@@ -55,6 +59,54 @@ class LogoutView(generics.GenericAPIView):
         return Response({'detail': 'Вы вышли из системы'}, status=status.HTTP_200_OK)
 
 
+# Профиль
+
+class ProfileView(generics.RetrieveUpdateAPIView):
+    """Просмотр и редактирование своего профиля."""
+
+    serializer_class = ProfileSerializer
+    permission_classes = (IsAuthenticated,)
+
+    def get_object(self):
+        """Возвращает профиль текущего пользователя."""
+        return self.request.user
+
+
+class ChangePasswordView(generics.GenericAPIView):
+    """Смена пароля текущего пользователя."""
+
+    serializer_class = ChangePasswordSerializer
+    permission_classes = (IsAuthenticated,)
+
+    def post(self, request):
+        """Проверяет старый пароль и сохраняет новый."""
+        serializer = self.get_serializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        user = request.user
+        user.set_password(serializer.validated_data['new_password'])
+        user.save()
+        return Response({'detail': 'Пароль успешно изменён'}, status=status.HTTP_200_OK)
+
+
+class ChangePhoneView(generics.GenericAPIView):
+    """Смена номера телефона текущего пользователя."""
+
+    serializer_class = ChangePhoneSerializer
+    permission_classes = (IsAuthenticated,)
+
+    def post(self, request):
+        """Проверяет номер и сохраняет его пользователю."""
+        serializer = self.get_serializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        user = request.user
+        user.phone = serializer.validated_data['phone']
+        user.username = str(user.phone).replace('+', '')
+        user.save()
+        return Response(
+            {'detail': 'Номер телефона успешно изменён'}, status=status.HTTP_200_OK,
+        )
+
+
 # Меню
 
 class CategoryListView(generics.ListAPIView):
@@ -73,18 +125,13 @@ class CategoryCreateView(generics.CreateAPIView):
 
 
 class DishListView(generics.ListAPIView):
-    """Список блюд. Доступно всем. Можно фильтровать по категории."""
+    """Список блюд. Доступно всем. Можно фильтровать по категории (?category=1)."""
 
+    queryset = Dish.objects.all()
     serializer_class = DishSerializer
     permission_classes = (AllowAny,)
-
-    def get_queryset(self):
-        """Возвращает блюда с учётом фильтра по категории."""
-        queryset = Dish.objects.all()
-        category_id = self.request.query_params.get('category')
-        if category_id:
-            queryset = queryset.filter(category_id=category_id)
-        return queryset
+    filter_backends = (DjangoFilterBackend,)
+    filterset_class = DishFilter
 
 
 class DishDetailView(generics.RetrieveAPIView):
@@ -167,17 +214,13 @@ class OrderCreateView(generics.CreateAPIView):
     serializer_class = OrderCreateSerializer
     permission_classes = (IsAuthenticated,)
 
-    def get_serializer_context(self):
-        """Добавляет запрос в контекст для доступа к текущему пользователю."""
-        context = super().get_serializer_context()
-        context['request'] = self.request
-        return context
-
 
 class OrderListView(generics.ListAPIView):
-    """Список заказов. Свои заказы — клиент, все — админ."""
+    """Список заказов. Свои заказы — клиент, все — админ. Можно фильтровать по статусу (?status=confirmed)."""
 
     serializer_class = OrderSerializer
+    filter_backends = (DjangoFilterBackend,)
+    filterset_class = OrderFilter
 
     def get_queryset(self):
         """Клиент видит свои заказы, админ — все."""
@@ -204,7 +247,7 @@ class OrderDetailView(generics.RetrieveAPIView):
 
 
 class OrderCancelView(generics.UpdateAPIView):
-    """Отмена заказа. Только владелец и только если заказ ещё не отменён."""
+    """Отмена заказа. Только владелец и только пока заказ в статусе «Создан»."""
 
     serializer_class = OrderSerializer
     permission_classes = (IsOwnerOrAdmin,)
@@ -218,11 +261,12 @@ class OrderCancelView(generics.UpdateAPIView):
         return Order.objects.filter(user=self.request.user)
 
     def update(self, request, *args, **kwargs):
-        """Меняет статус заказа на «Отменён»."""
+        """Меняет статус заказа на «Отменён», если заказ ещё не принят в работу."""
         order = self.get_object()
-        if order.status == 'cancelled':
+        if order.status != 'created':
             return Response(
-                {'detail': 'Заказ уже отменён'}, status=status.HTTP_400_BAD_REQUEST,
+                {'detail': 'Заказ можно отменить только в статусе «Создан»'},
+                status=status.HTTP_400_BAD_REQUEST,
             )
         order.status = 'cancelled'
         order.save()
