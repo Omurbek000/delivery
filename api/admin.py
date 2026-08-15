@@ -2,7 +2,7 @@
 
 from django.contrib import admin
 
-from .models import Category, Dish, Favorite, Order, OrderItem, User
+from .models import Category, Dish, Favorite, Order, OrderItem, PromoCode, User
 
 
 @admin.register(User)
@@ -43,9 +43,18 @@ class FavoriteAdmin(admin.ModelAdmin):
 class OrderAdmin(admin.ModelAdmin):
     """Админка заказов."""
 
-    list_display = ('id', 'user', 'status', 'total_price', 'created_at')
+    list_display = ('id', 'user', 'status', 'total_price', 'discount_amount', 'created_at')
     list_filter = ('status',)
     search_fields = ('user__phone', 'street', 'house')
+
+
+@admin.register(PromoCode)
+class PromoCodeAdmin(admin.ModelAdmin):
+    """Админка промокодов."""
+
+    list_display = ('code', 'discount_percent', 'is_active', 'valid_until', 'min_order_amount')
+    list_filter = ('is_active',)
+    search_fields = ('code',)
 
 
 @admin.register(OrderItem)

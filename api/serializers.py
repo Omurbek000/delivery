@@ -1,10 +1,12 @@
 """Сериализаторы приложения api."""
 
+from datetime import date
+
 from phonenumber_field.serializerfields import PhoneNumberField
 from rest_framework import serializers
 from rest_framework_simplejwt.tokens import RefreshToken
 
-from .models import Category, Dish, Favorite, Order, OrderItem, User
+from .models import Category, Dish, Favorite, Order, OrderItem, PromoCode, User
 
 
 # Пользователи и авторизация
@@ -183,14 +185,19 @@ class OrderSerializer(serializers.ModelSerializer):
     """Сериализатор заказа для отображения."""
 
     order_item = OrderItemSerializer(many=True, read_only=True)
+    subtotal = serializers.SerializerMethodField()
 
     class Meta:
         model = Order
         fields = (
             'id', 'user', 'created_at', 'status',
             'street', 'house', 'entrance', 'floor', 'apartment',
-            'total_price', 'comment', 'order_item',
+            'total_price', 'discount_amount', 'subtotal', 'promo_code', 'comment', 'order_item',
         )
+
+    def get_subtotal(self, obj):
+        """Возвращает сумму без учёта скидки."""
+        return obj.calculate_total()
 
 
 class OrderItemCreateSerializer(serializers.Serializer):
@@ -201,13 +208,14 @@ class OrderItemCreateSerializer(serializers.Serializer):
 
 
 class OrderCreateSerializer(serializers.ModelSerializer):
-    """Сериализатор создания заказа со списком блюд."""
+    """Сериализатор создания заказа со списком блюд и промокодом."""
 
     items = OrderItemCreateSerializer(many=True, write_only=True)
+    promo_code = serializers.CharField(write_only=True, required=False, allow_blank=True)
 
     class Meta:
         model = Order
-        fields = ('street', 'house', 'entrance', 'floor', 'apartment', 'comment', 'items')
+        fields = ('street', 'house', 'entrance', 'floor', 'apartment', 'comment', 'items', 'promo_code')
 
     def validate_items(self, items):
         """Проверяет, что все блюда существуют и доступны."""
@@ -219,11 +227,23 @@ class OrderCreateSerializer(serializers.ModelSerializer):
             raise serializers.ValidationError('Некоторые блюда недоступны')
         return items
 
+    def validate_promo_code(self, value):
+        """Находит промокод и проверяет, что он действует."""
+        promo = PromoCode.objects.filter(code__iexact=value).first()
+        if not promo:
+            raise serializers.ValidationError('Промокод не найден')
+        if not promo.is_active:
+            raise serializers.ValidationError('Промокод не активен')
+        if promo.valid_until and promo.valid_until < date.today():
+            raise serializers.ValidationError('Срок действия промокода истёк')
+        return promo
+
     def create(self, validated_data):
-        """Создаёт заказ, позиции и пересчитывает итоговую сумму."""
+        """Создаёт заказ, позиции и пересчитывает итоговую сумму со скидкой."""
         items_data = validated_data.pop('items')
+        promo = validated_data.pop('promo_code', None)
         order = Order.objects.create(
-            user=self.context['request'].user, **validated_data,
+            user=self.context['request'].user, promo_code=promo, **validated_data,
         )
         for item_data in items_data:
             dish = Dish.objects.get(pk=item_data['dish_id'])
@@ -231,7 +251,13 @@ class OrderCreateSerializer(serializers.ModelSerializer):
                 order=order, dish=dish, quantity=item_data['quantity'],
                 price_at_order=dish.price,
             )
-        order.total_price = order.calculate_total()
+        subtotal = order.calculate_total()
+        if promo and subtotal < promo.min_order_amount:
+            raise serializers.ValidationError(
+                f'Минимальная сумма заказа для этого промокода — {promo.min_order_amount}'
+            )
+        order.discount_amount = order.apply_promo()
+        order.total_price = subtotal - order.discount_amount
         order.save()
         return order
 

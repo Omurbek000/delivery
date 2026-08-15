@@ -8,3 +8,4 @@ drf-yasg
 Pillow
 django-allauth
 requests
+python-dotenv

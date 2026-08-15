@@ -1,0 +1,1323 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>«Онигири» — защита проекта</title>
+    <style>
+        :root {
+            --red: #ff4d4d;
+            --red2: #ff6b6b;
+            --orange: #ffb84d;
+            --bg: #0f0e1a;
+            --panel: rgba(30, 28, 50, 0.85);
+            --panel-border: rgba(255, 255, 255, 0.08);
+            --text: #eef0ff;
+            --muted: #9b9cc8;
+        }
+
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+
+        html, body {
+            width: 100%;
+            height: 100%;
+            overflow: hidden;
+            background: #0b0a14;
+            font-family: 'Segoe UI', system-ui, Arial, sans-serif;
+            color: var(--text);
+        }
+
+        /* ===== Сцена (масштабирование под экран) ===== */
+        #stage {
+            position: fixed;
+            top: 0; left: 0;
+            width: 100%; height: 100%;
+            transform-origin: 0 0;
+            perspective: 1400px;
+        }
+
+        /* ===== Слайд ===== */
+        .slide {
+            position: absolute;
+            top: 0; left: 0;
+            width: 100%; height: 100%;
+            padding: 4.5% 6%;
+            display: none;
+            flex-direction: column;
+            opacity: 0;
+            transform: scale(0.92) rotateX(4deg) translateY(20px);
+            will-change: transform, opacity;
+        }
+
+        .slide.active {
+            display: flex;
+            animation: slideIn 0.75s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+        }
+
+        .slide.leaving {
+            display: flex;
+            animation: slideOut 0.6s cubic-bezier(0.7, 0, 0.84, 0) forwards;
+        }
+
+        @keyframes slideIn {
+            from { opacity: 0; transform: scale(0.92) rotateX(4deg) translateY(20px); }
+            to   { opacity: 1; transform: scale(1) rotateX(0) translateY(0); }
+        }
+
+        @keyframes slideOut {
+            from { opacity: 1; transform: scale(1) rotateX(0); }
+            to   { opacity: 0; transform: scale(1.04) rotateX(-3deg) translateY(-24px); }
+        }
+
+        /* ===== Створки (как выезжающие элементы слайда) ===== */
+        .reveal { opacity: 0; transform: translateY(24px); }
+        .slide.active .reveal { animation: revealUp 0.7s ease forwards; }
+        .slide.active .reveal:nth-child(1) { animation-delay: 0.15s; }
+        .slide.active .reveal:nth-child(2) { animation-delay: 0.28s; }
+        .slide.active .reveal:nth-child(3) { animation-delay: 0.4s; }
+        .slide.active .reveal:nth-child(4) { animation-delay: 0.52s; }
+        .slide.active .reveal:nth-child(5) { animation-delay: 0.64s; }
+
+        @keyframes revealUp {
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        .big-title {
+            font-size: 6vh;
+            font-weight: 800;
+            line-height: 1.1;
+            background: linear-gradient(120deg, var(--red), var(--orange));
+            -webkit-background-clip: text;
+            background-clip: text;
+            -webkit-text-fill-color: transparent;
+            margin-bottom: 1.5vh;
+        }
+
+        .title-white {
+            font-size: 5vh;
+            font-weight: 800;
+            margin-bottom: 1.2vh;
+            color: #fff;
+        }
+
+        .subtitle {
+            color: var(--muted);
+            font-size: 2.4vh;
+            margin-bottom: 2.5vh;
+            max-width: 70%;
+        }
+
+        .center-wrap {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            text-align: center;
+            gap: 2vh;
+        }
+
+        .chip {
+            display: inline-block;
+            padding: 0.8vh 2vh;
+            border-radius: 50px;
+            font-size: 1.7vh;
+            font-weight: 600;
+            margin: 0.4vh;
+            background: rgba(255, 77, 77, 0.12);
+            border: 1px solid rgba(255, 77, 77, 0.35);
+            color: #ffb3b3;
+        }
+
+        /* ===== Прогресс-бар ===== */
+        #progress {
+            position: fixed;
+            top: 0; left: 0;
+            height: 5px;
+            width: 0%;
+            background: linear-gradient(90deg, var(--red), var(--orange));
+            z-index: 200;
+            transition: width 0.5s;
+            border-radius: 0 5px 5px 0;
+        }
+
+        /* ===== Навигация ===== */
+        #nav {
+            position: fixed;
+            bottom: 2.5vh;
+            left: 50%;
+            transform: translateX(-50%);
+            display: flex;
+            align-items: center;
+            gap: 1.2vw;
+            background: rgba(15, 14, 26, 0.85);
+            border: 1px solid var(--panel-border);
+            backdrop-filter: blur(16px);
+            padding: 1vh 1.6vw;
+            border-radius: 50px;
+            z-index: 200;
+            box-shadow: 0 10px 40px rgba(0, 0, 0, 0.5);
+        }
+
+        #nav button {
+            background: linear-gradient(135deg, var(--red), var(--red2));
+            color: #fff;
+            border: none;
+            padding: 0.9vh 1.6vw;
+            border-radius: 40px;
+            font-size: 1.7vh;
+            font-weight: 700;
+            cursor: pointer;
+            transition: transform 0.15s, box-shadow 0.2s;
+        }
+
+        #nav button:hover { transform: translateY(-2px); box-shadow: 0 8px 24px rgba(255, 77, 77, 0.45); }
+        #nav button:active { transform: scale(0.94); }
+
+        #dots { display: flex; gap: 0.6vw; align-items: center; }
+        .dot {
+            width: 9px; height: 9px;
+            border-radius: 50%;
+            background: #3a3870;
+            cursor: pointer;
+            transition: 0.3s;
+        }
+        .dot.on { background: var(--red); transform: scale(1.5); box-shadow: 0 0 12px var(--red); }
+
+        #counter {
+            font-size: 1.6vh;
+            color: var(--muted);
+            font-variant-numeric: tabular-nums;
+            min-width: 6ch;
+            text-align: center;
+        }
+
+        /* ===== Карточки ===== */
+        .cards {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(20vw, 1fr));
+            gap: 1.6vw;
+            flex: 1;
+        }
+
+        .card {
+            background: var(--panel);
+            border: 1px solid var(--panel-border);
+            border-radius: 18px;
+            padding: 2.2vh 1.6vw;
+            backdrop-filter: blur(14px);
+            transform-style: preserve-3d;
+            transition: transform 0.4s cubic-bezier(0.2,0.9,0.3,1), box-shadow 0.4s, border-color 0.3s;
+            cursor: default;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .card:hover {
+            transform: translateY(-6px) rotateX(3deg);
+            box-shadow: 0 30px 60px rgba(0,0,0,0.45), 0 0 40px rgba(255,77,77,0.12);
+            border-color: rgba(255,77,77,0.4);
+        }
+
+        .card .icon { font-size: 4vh; margin-bottom: 1vh; }
+        .card h3 { font-size: 2.8vh; color: var(--red2); margin-bottom: 1vh; }
+        .card ul { list-style: none; }
+        .card li {
+            padding: 0.6vh 0;
+            font-size: 2.1vh;
+            color: #c9cae6;
+            border-bottom: 1px dashed rgba(255,255,255,0.06);
+        }
+        .card li:last-child { border: none; }
+
+        /* ===== Мокап телефона ===== */
+        .phones {
+            display: flex;
+            gap: 2.5vw;
+            justify-content: center;
+            align-items: flex-start;
+            flex: 1;
+            padding-top: 1vh;
+        }
+
+        .phone {
+            width: 16vw;
+            min-width: 160px;
+            aspect-ratio: 9/18;
+            background: #141223;
+            border-radius: 2.4vw;
+            border: 3px solid #3a3870;
+            padding: 1.1vw;
+            position: relative;
+            box-shadow: 0 30px 80px rgba(0,0,0,0.6);
+            display: flex;
+            flex-direction: column;
+            gap: 1vh;
+            transition: transform 0.5s cubic-bezier(0.2,0.9,0.3,1);
+        }
+
+        .phone:hover { transform: translateY(-10px) rotate(var(--tilt, 0deg)); }
+        .phone.tilt-left { --tilt: -4deg; }
+        .phone.tilt-right { --tilt: 4deg; }
+
+        .phone::before { /* камера */
+            content: '';
+            position: absolute;
+            top: 1.4vw; left: 50%;
+            transform: translateX(-50%);
+            width: 10px; height: 10px;
+            border-radius: 50%;
+            background: #0b0a14;
+            border: 2px solid #3a3870;
+        }
+
+        .phone .screen {
+            flex: 1;
+            background: #0b0a14;
+            border-radius: 1.6vw;
+            padding: 0.9vw;
+            display: flex;
+            flex-direction: column;
+            gap: 0.6vw;
+            overflow: hidden;
+            position: relative;
+        }
+
+        .phone .ph-name {
+            font-size: 1.5vh;
+            font-weight: 700;
+            color: #ffb3b3;
+            text-align: center;
+            padding-top: 0.5vh;
+        }
+
+        .ph-row {
+            background: #1b1930;
+            border-radius: 0.8vw;
+            padding: 0.7vw;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .ph-row .t { font-size: 1.4vh; color: #cfd0ea; }
+        .ph-row .p { font-size: 1.4vh; color: var(--orange); font-weight: 700; }
+
+        .ph-order-status {
+            background: #1b1930;
+            border-radius: 0.8vw;
+            padding: 0.8vw;
+            font-size: 1.3vh;
+            color: #cfd0ea;
+            display: flex;
+            flex-direction: column;
+            gap: 0.5vh;
+        }
+
+        .ph-timeline { position: relative; padding-left: 1.4vw; }
+        .ph-timeline::before {
+            content: '';
+            position: absolute;
+            left: 0.45vw; top: 0.4vh; bottom: 0.4vh;
+            width: 2px;
+            background: linear-gradient(180deg, var(--red), var(--orange));
+        }
+        .ph-timeline div {
+            position: relative;
+            font-size: 1.25vh;
+            color: #9fe0a8;
+            padding: 0.35vh 0;
+        }
+        .ph-timeline div::before {
+            content: '';
+            position: absolute;
+            left: -1.25vw;
+            top: 50%;
+            transform: translateY(-50%);
+            width: 7px; height: 7px;
+            border-radius: 50%;
+            background: var(--red);
+            box-shadow: 0 0 8px var(--red);
+        }
+        .ph-timeline div.done { color: #5fd37a; }
+        .ph-timeline div.current { color: #ffd93d; font-weight: 700; animation: blink 1.2s infinite; }
+
+        @keyframes blink {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.4; }
+        }
+
+        .ph-btn {
+            background: linear-gradient(135deg, var(--red), var(--red2));
+            border-radius: 0.8vw;
+            padding: 0.7vw;
+            text-align: center;
+            font-size: 1.4vh;
+            font-weight: 700;
+            color: #fff;
+        }
+
+        /* ===== ER-диаграмма ===== */
+        .er {
+            display: flex;
+            flex-direction: column;
+            gap: 2.2vh;
+            flex: 1;
+            justify-content: center;
+        }
+
+        .er-row {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 1.2vw;
+        }
+
+        .rel {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 0.4vh;
+            min-width: 5vw;
+        }
+
+        .rel .graphic {
+            position: relative;
+            width: 100%;
+            height: 4px;
+            background: linear-gradient(90deg, var(--red), var(--orange), var(--red));
+            background-size: 300% 100%;
+            border-radius: 4px;
+            animation: flow 2s linear infinite;
+        }
+
+        @keyframes flow {
+            0% { background-position: 0% 0; }
+            100% { background-position: 300% 0; }
+        }
+
+        .rel .runner {
+            width: 9px; height: 9px;
+            border-radius: 50%;
+            background: #ffd93d;
+            box-shadow: 0 0 12px #ffd93d;
+            position: absolute;
+            top: -2.5px;
+            animation: run 2s linear infinite;
+        }
+
+        @keyframes run {
+            0% { left: 0; opacity: 0; }
+            10% { opacity: 1; }
+            90% { opacity: 1; }
+            100% { left: calc(100% - 9px); opacity: 0; }
+        }
+
+        .rel .lbl {
+            font-size: 1.5vh;
+            color: var(--muted);
+            font-weight: 700;
+        }
+
+        .entity {
+            background: var(--panel);
+            border: 1.5px solid rgba(255,77,77,0.4);
+            border-radius: 14px;
+            min-width: 11vw;
+            overflow: hidden;
+            text-align: left;
+            transition: 0.35s;
+        }
+
+        .entity:hover {
+            box-shadow: 0 14px 40px rgba(255,77,77,0.2), 0 0 0 1px rgba(255,77,77,0.4);
+            transform: translateY(-3px);
+        }
+
+        .entity .head {
+            background: linear-gradient(120deg, rgba(255,77,77,0.25), rgba(255,184,77,0.15));
+            padding: 1vh 1.2vw;
+            font-weight: 800;
+            font-size: 1.9vh;
+            color: var(--red2);
+        }
+
+        .entity ul { list-style: none; padding: 0.8vh 1.2vw; }
+        .entity li {
+            font-size: 1.5vh;
+            color: #c9cae6;
+            padding: 0.35vh 0;
+        }
+        .entity li.pk { color: #ffd93d; font-weight: 600; }
+        .entity li.fk { color: #7ee0a3; }
+
+        /* ===== Живые блоки (слайды 7-8) ===== */
+        .live-flow {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 1vw;
+            flex-wrap: wrap;
+            flex: 1;
+            padding: 1vh 0;
+        }
+
+        .live-node {
+            background: var(--panel);
+            border: 1.5px solid rgba(255,77,77,0.4);
+            border-radius: 16px;
+            min-width: 13vw;
+            max-width: 17vw;
+            padding: 1.6vh 1.2vw;
+            text-align: center;
+            transition: 0.35s;
+            position: relative;
+        }
+
+        .live-node:hover {
+            transform: translateY(-4px);
+            box-shadow: 0 14px 40px rgba(255,77,77,0.2);
+        }
+
+        .live-node .big-icon { font-size: 4.5vh; margin-bottom: 0.8vh; }
+        .live-node h3 { font-size: 2.2vh; color: var(--red2); margin-bottom: 0.5vh; }
+        .live-node p { font-size: 1.8vh; color: #c9cae6; line-height: 1.4; }
+        .live-node .mini-chip {
+            display: inline-block;
+            margin-top: 0.8vh;
+            font-size: 1.4vh;
+            font-weight: 700;
+            color: #7ee0a3;
+            background: rgba(126,224,163,0.1);
+            border: 1px solid rgba(126,224,163,0.3);
+            border-radius: 20px;
+            padding: 0.3vh 0.8vw;
+        }
+
+        .live-connector {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 0.4vh;
+            min-width: 5vw;
+        }
+
+        .live-connector .pulse-line {
+            position: relative;
+            width: 100%;
+            height: 5px;
+            border-radius: 5px;
+            background: linear-gradient(90deg, var(--red), var(--orange), var(--red));
+            background-size: 300% 100%;
+            animation: flow 2s linear infinite;
+        }
+
+        .live-connector .pulse-dot {
+            position: absolute;
+            top: -2px;
+            width: 9px;
+            height: 9px;
+            border-radius: 50%;
+            background: #ffd93d;
+            box-shadow: 0 0 12px #ffd93d;
+            animation: run 2s linear infinite;
+        }
+
+        .live-connector .lbl {
+            font-size: 1.6vh;
+            color: var(--muted);
+            font-weight: 700;
+            white-space: nowrap;
+        }
+
+        /* Вертикальные коннекторы для демо-цикла */
+        .live-flow.vertical {
+            flex-direction: column;
+            gap: 0.5vh;
+            width: 100%;
+        }
+
+        .live-flow.vertical .live-connector {
+            flex-direction: row;
+            width: 100%;
+            min-width: 0;
+            justify-content: center;
+            gap: 1vw;
+        }
+
+        .live-flow.vertical .live-connector .pulse-line {
+            flex: 1;
+            max-width: 40%;
+        }
+
+        .live-node.wide {
+            min-width: 34vw;
+            padding: 1vh 1.2vw;
+        }
+
+        .live-node.wide .mini-chip {
+            margin-top: 0.4vh;
+        }
+
+        /* Живое появление по очереди */
+        .live-node, .live-connector {
+            opacity: 0;
+        }
+        .slide.active .live-node { animation: revealUp 0.6s ease forwards; }
+        .slide.active .live-connector { animation: revealUp 0.6s ease forwards; }
+        .slide.active .live-node:nth-child(1) { animation-delay: 0.2s; }
+        .slide.active .live-node:nth-child(3) { animation-delay: 0.4s; }
+        .slide.active .live-node:nth-child(5) { animation-delay: 0.6s; }
+        .slide.active .live-connector:nth-child(2) { animation-delay: 0.3s; }
+        .slide.active .live-connector:nth-child(4) { animation-delay: 0.5s; }
+
+        /* ===== Конвейер статусов ===== */
+        .conveyor {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 0.8vw;
+            flex-wrap: wrap;
+            padding: 2vh 0;
+        }
+
+        .status-box {
+            background: var(--panel);
+            border: 2px solid #3a3870;
+            border-radius: 14px;
+            padding: 1.4vh 1.4vw;
+            font-size: 1.9vh;
+            font-weight: 700;
+            min-width: 8vw;
+            text-align: center;
+            position: relative;
+            transition: 0.3s;
+        }
+
+        .status-box.doing {
+            border-color: var(--red);
+            box-shadow: 0 0 24px rgba(255,77,77,0.35);
+            animation: bounce 2s ease-in-out infinite;
+        }
+
+        @keyframes bounce {
+            0%,100% { transform: translateY(0); }
+            50% { transform: translateY(-5px); }
+        }
+
+        .flow-arrow {
+            font-size: 2.6vh;
+            color: var(--orange);
+            animation: shove 1.2s ease-in-out infinite;
+        }
+
+        @keyframes shove {
+            0%,100% { transform: translateX(0); opacity: 0.6; }
+            50% { transform: translateX(6px); opacity: 1; }
+        }
+
+        /* ===== Таблица API ===== */
+        .api-table-wrap {
+            flex: 1;
+            overflow: auto;
+            background: var(--panel);
+            border: 1px solid var(--panel-border);
+            border-radius: 16px;
+            backdrop-filter: blur(14px);
+        }
+
+        table { width: 100%; border-collapse: collapse; font-size: 1.8vh; }
+        th {
+            position: sticky;
+            top: 0;
+            background: #1c1a33;
+            color: var(--red2);
+            text-align: left;
+            padding: 1.2vh 1.4vw;
+            font-weight: 700;
+        }
+        td {
+            padding: 1.1vh 1.4vw;
+            border-bottom: 1px solid rgba(255,255,255,0.05);
+            color: #cdceea;
+        }
+        tr:hover td { background: rgba(255,255,255,0.04); }
+
+        .badge {
+            display: inline-block;
+            padding: 0.3vh 0.7vw;
+            border-radius: 6px;
+            font-size: 1.4vh;
+            font-weight: 700;
+        }
+        .b-guest { background: rgba(90,90,180,0.25); color: #b3b3ff; }
+        .b-client { background: rgba(255,77,77,0.2); color: #ffb3b3; }
+        .b-admin { background: rgba(255,184,77,0.2); color: #ffd9a0; }
+
+        /* ===== Метод (жирный) ===== */
+        .method {
+            display: inline-block;
+            font-weight: 800;
+            font-family: 'Consolas', monospace;
+            padding: 0.2vh 0.5vw;
+            border-radius: 5px;
+            font-size: 1.5vh;
+        }
+        .m-get { background: rgba(90,200,120,0.15); color: #6fd68a; }
+        .m-post { background: rgba(90,140,220,0.15); color: #7eb0ff; }
+        .m-patch { background: rgba(255,184,77,0.15); color: #ffc46b; }
+
+        code.mono {
+            font-family: 'Consolas', monospace;
+            background: rgba(255,255,255,0.06);
+            padding: 0.2vh 0.5vw;
+            border-radius: 4px;
+            font-size: 1.6vh;
+        }
+
+        /* ===== Числа статистики ===== */
+        .stats {
+            display: flex;
+            gap: 2vw;
+            justify-content: center;
+            align-items: center;
+            flex: 1;
+            text-align: center;
+        }
+
+        .stat {
+            background: var(--panel);
+            border: 1px solid var(--panel-border);
+            border-radius: 20px;
+            padding: 3vh 2.5vw;
+            min-width: 12vw;
+            transition: 0.3s;
+        }
+
+        .stat:hover { transform: translateY(-6px); border-color: rgba(255,77,77,0.4); }
+
+        .stat .num {
+            font-size: 6vh;
+            font-weight: 800;
+            background: linear-gradient(120deg, var(--red), var(--orange));
+            -webkit-background-clip: text;
+            background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+
+        .stat .lblc {
+            font-size: 1.9vh;
+            color: var(--muted);
+            margin-top: 0.6vh;
+        }
+
+        /* Сообщение "живой ввод" - как терминал */
+        .term {
+            background: #0b0a14;
+            border: 1px solid var(--panel-border);
+            border-radius: 14px;
+            padding: 2vh;
+            width: min(60vw, 900px);
+            text-align: left;
+            font-family: 'Consolas', monospace;
+            font-size: 1.9vh;
+            color: #8fe0a0;
+            line-height: 1.7;
+        }
+        .term .cursor { display: inline-block; width: 0.6ch; height: 1.4em; background: #8fe0a0; vertical-align: text-bottom; animation: blink 0.9s infinite; }
+        .term .ok { color: #5fd37a; font-weight: 700; }
+        .term .arrow { color: #ffd93d; }
+
+        .big-red {
+            font-size: 4.4vh;
+            font-weight: 800;
+            color: var(--red2);
+            margin-top: 2vh;
+        }
+
+        .muted { color: var(--muted); }
+    </style>
+</head>
+<body>
+
+    <div id="progress"></div>
+
+    <div id="stage"></div>
+
+    <!-- ========== СЛАЙД 1: Титульный ========== -->
+    <section class="slide active">
+        <div class="center-wrap">
+            <div class="reveal" style="font-size: 1.6vh; letter-spacing: 4px; color: var(--muted); text-transform: uppercase;">Проект для сертификации в IT-академии Okurmen</div>
+            <div class="reveal big-title" style="font-size: 7.5vh;">«Онигири»</div>
+            <div class="reveal" style="font-size: 2.4vh; color: #ffb3b3;">Доставка японской еды</div>
+            <div class="reveal" style="color: var(--muted); margin-top: 1vh; font-size: 1.8vh;">
+                Описание проекта: API-сервис заказа и доставки еды одного ресторана —
+                меню, заказы со статусами, избранное.
+            </div>
+            <div class="reveal" style="margin-top: 2.4vh;">
+                <span class="chip">Django 5</span>
+                <span class="chip">Django REST Framework</span>
+                <span class="chip">JWT</span>
+                <span class="chip">SQLite</span>
+                <span class="chip">Swagger</span>
+            </div>
+        </div>
+    </section>
+
+    <!-- ========== СЛАЙД 2: Роли ========== -->
+    <section class="slide">
+        <div style="display:flex; flex-direction:column; height:100%;">
+            <div class="reveal title-white">Три роли — чёткое разделение прав</div>
+            <div class="reveal subtitle">Разграничение доступа на уровне permissions в DRF</div>
+            <div class="cards">
+                <div class="card">
+                    <div class="icon">👤</div>
+                    <h3>Гость</h3>
+                    <ul>
+                        <li>Просмотр категорий</li>
+                        <li>Просмотр блюд</li>
+                        <li>Фильтр по категории</li>
+                        <li>Без авторизации</li>
+                    </ul>
+                </div>
+                <div class="card">
+                    <div class="icon">👨‍🍳</div>
+                    <h3>Клиент</h3>
+                    <ul>
+                        <li>Регистрация и вход</li>
+                        <li>Профиль, смена пароля</li>
+                        <li>Оформление заказа</li>
+                        <li>Отслеживание статуса</li>
+                        <li>Отмена (только «Создан»)</li>
+                        <li>Избранное</li>
+                    </ul>
+                </div>
+                <div class="card">
+                    <div class="icon">🛠️</div>
+                    <h3>Администратор</h3>
+                    <ul>
+                        <li>Управление меню (CRUD)</li>
+                        <li>Просмотр всех заказов</li>
+                        <li>Смена статуса заказа</li>
+                        <li>Фильтр заказов по статусу</li>
+                        <li>Админ-панель Django</li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- ========== СЛАЙД 3: Технологии ========== -->
+    <section class="slide">
+        <div style="display:flex; flex-direction:column; height:100%;">
+            <div class="reveal title-white">Технологический стек</div>
+            <div class="reveal subtitle">Почему именно эти технологии</div>
+            <div class="cards">
+                <div class="card">
+                    <div class="icon">🐍</div>
+                    <h3>Python 3 + Django</h3>
+                    <ul>
+                        <li>Читаемый и простой язык</li>
+                        <li>Батарейки в комплекте: admin, ORM, auth</li>
+                        <li>Быстрая разработка</li>
+                    </ul>
+                </div>
+                <div class="card">
+                    <div class="icon">🔌</div>
+                    <h3>Django REST Framework</h3>
+                    <ul>
+                        <li>Сериализаторы и валидация</li>
+                        <li>Готовые generics-вьюхи</li>
+                        <li>Права доступа (permissions)</li>
+                        <li>Встроенная пагинация и фильтры</li>
+                    </ul>
+                </div>
+                <div class="card">
+                    <div class="icon">🔐</div>
+                    <h3>JWT (simplejwt)</h3>
+                    <ul>
+                        <li>Токен-аутентификация</li>
+                        <li>Access + Refresh токены</li>
+                        <li>Чёрный список при выходе</li>
+                    </ul>
+                </div>
+                <div class="card">
+                    <div class="icon">📖</div>
+                    <h3>Swagger + тесты</h3>
+                    <ul>
+                        <li>Автодокументация API</li>
+                        <li>23 теста покрывают сценарии</li>
+                        <li>SQLite для разработки</li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- ========== СЛАЙД 4: ER-диаграмма ========== -->
+    <section class="slide">
+        <div style="display:flex; flex-direction:column; height:100%;">
+            <div class="reveal title-white">Модель данных (ER-диаграмма)</div>
+            <div class="reveal subtitle">Связи между таблицами — живые: по линиям бегут данные</div>
+            <div class="er">
+                <div class="er-row">
+                    <div class="entity">
+                        <div class="head">User</div>
+                        <ul>
+                            <li class="pk">id [PK]</li>
+                            <li>phone</li>
+                            <li>first_name</li>
+                            <li>last_name</li>
+                            <li>photo</li>
+                        </ul>
+                    </div>
+                    <div class="rel">
+                        <div class="graphic"><div class="runner"></div></div>
+                        <div class="lbl">1 → *</div>
+                    </div>
+                    <div class="entity">
+                        <div class="head">Order</div>
+                        <ul>
+                            <li class="pk">id [PK]</li>
+                            <li class="fk">user [FK]</li>
+                            <li>created_at</li>
+                            <li>status</li>
+                            <li>delivery address</li>
+                            <li>total_price</li>
+                            <li>comment</li>
+                        </ul>
+                    </div>
+                </div>
+                <div class="er-row">
+                    <div class="entity">
+                        <div class="head">Category</div>
+                        <ul>
+                            <li class="pk">id [PK]</li>
+                            <li>name</li>
+                        </ul>
+                    </div>
+                    <div class="rel">
+                        <div class="graphic"><div class="runner" style="animation-delay:-0.6s;"></div></div>
+                        <div class="lbl">1 → *</div>
+                    </div>
+                    <div class="entity">
+                        <div class="head">Dish</div>
+                        <ul>
+                            <li class="pk">id [PK]</li>
+                            <li class="fk">category [FK]</li>
+                            <li>name, description</li>
+                            <li>price</li>
+                            <li>is_available</li>
+                        </ul>
+                    </div>
+                    <div class="rel">
+                        <div class="graphic"><div class="runner"></div></div>
+                        <div class="lbl">* ↔ *</div>
+                    </div>
+                    <div class="entity">
+                        <div class="head">OrderItem</div>
+                        <ul>
+                            <li class="pk">id [PK]</li>
+                            <li class="fk">order [FK]</li>
+                            <li class="fk">dish [FK]</li>
+                            <li>quantity</li>
+                            <li class="pk" style="color:#ffd93d;">price_at_order</li>
+                        </ul>
+                    </div>
+                </div>
+                <div class="er-row">
+                    <div class="entity">
+                        <div class="head">Favorite</div>
+                        <ul>
+                            <li class="pk">id [PK]</li>
+                            <li class="fk">user [FK]</li>
+                            <li class="fk">dish [FK]</li>
+                        </ul>
+                    </div>
+                    <div class="rel">
+                        <div class="graphic"><div class="runner" style="animation-delay:-1.2s;"></div></div>
+                        <div class="lbl">* ↔ *</div>
+                    </div>
+                    <div class="entity">
+                        <div class="head">«Избранное»</div>
+                        <ul>
+                            <li class="fk">user + dish</li>
+                            <li>связь многие-ко-многим</li>
+                            <li>через отдельную таблицу</li>
+                        </ul>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- ========== СЛАЙД 5: Статусы ========== -->
+    <section class="slide">
+        <div style="display:flex; flex-direction:column; height:100%;">
+            <div class="reveal title-white">Жизненный цикл заказа</div>
+            <div class="reveal subtitle">Клиент всегда знает, что происходит с его едой</div>
+            <div class="conveyor">
+                <div class="status-box doing">Создан</div>
+                <div class="flow-arrow">→</div>
+                <div class="status-box">Подтверждён</div>
+                <div class="flow-arrow">→</div>
+                <div class="status-box">Готовится</div>
+                <div class="flow-arrow">→</div>
+                <div class="status-box">Доставляется</div>
+                <div class="flow-arrow">→</div>
+                <div class="status-box">Доставлен</div>
+            </div>
+            <div class="reveal" style="text-align:center; margin-top: 1vh;">
+                <span class="chip" style="color:#ffd9a0; border-color: rgba(255,184,77,0.4); background: rgba(255,184,77,0.08);">➕ Отменён — доступен клиенту только в статусе «Создан»</span>
+            </div>
+
+            <!-- Мокап телефона клиента -->
+            <div class="phones" style="margin-top: 2vh;">
+                <div class="phone tilt-left">
+                    <div class="screen">
+                        <div class="ph-name">Моя еда</div>
+                        <div class="ph-row"><span class="t">Корзина</span><span class="p">2 позиции</span></div>
+                        <div class="ph-row"><span class="t">Филадельфия</span><span class="p">490 ₽</span></div>
+                        <div class="ph-row"><span class="t">Кола</span><span class="p">150 ₽</span></div>
+                        <div class="ph-btn">Оформить заказ</div>
+                    </div>
+                </div>
+                <div class="phone">
+                    <div class="screen">
+                        <div class="ph-name">Заказ №12 · в работе</div>
+                        <div class="ph-order-status">
+                            <div class="ph-timeline">
+                                <div class="done">✓ Создан</div>
+                                <div class="done">✓ Подтверждён</div>
+                                <div class="current">● Готовится</div>
+                                <div>○ Доставляется</div>
+                                <div>○ Доставлен</div>
+                            </div>
+                        </div>
+                        <div class="ph-row"><span class="t">Итого</span><span class="p">640 ₽</span></div>
+                    </div>
+                </div>
+                <div class="phone tilt-right">
+                    <div class="screen">
+                        <div class="ph-name">Админ · заказы</div>
+                        <div class="ph-row"><span class="t">№12</span><span class="p" style="color:#ffd93d;">Готовится</span></div>
+                        <div class="ph-row"><span class="t">№11</span><span class="p">Доставлен</span></div>
+                        <div class="ph-row"><span class="t">№10</span><span class="p">Отменён</span></div>
+                        <div class="ph-btn">Сменить статус →</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- ========== СЛАЙД 6: API ========== -->
+    <section class="slide">
+        <div style="display:flex; flex-direction:column; height:100%;">
+            <div class="reveal title-white">API-эндпоинты</div>
+            <div class="reveal subtitle">Полная CRUD-поверхность с разграничением доступа</div>
+            <div class="reveal api-table-wrap" style="height:100%;">
+                <table>
+                    <tr><th>Метод</th><th>Эндпоинт</th><th>Что делает</th><th>Доступ</th></tr>
+                    <tr><td><span class="method m-post">POST</span></td><td><code class="mono">/register/</code></td><td>Регистрация</td><td><span class="badge b-guest">Все</span></td></tr>
+                    <tr><td><span class="method m-post">POST</span></td><td><code class="mono">/login/</code></td><td>Вход, JWT-токены</td><td><span class="badge b-guest">Все</span></td></tr>
+                    <tr><td><span class="method m-get">GET</span></td><td><code class="mono">/profile/</code></td><td>Профиль</td><td><span class="badge b-client">Клиент</span></td></tr>
+                    <tr><td><span class="method m-get">GET</span></td><td><code class="mono">/categories/</code></td><td>Список категорий</td><td><span class="badge b-guest">Все</span></td></tr>
+                    <tr><td><span class="method m-get">GET</span></td><td><code class="mono">/dishes/?category=</code></td><td>Блюда с фильтром</td><td><span class="badge b-guest">Все</span></td></tr>
+                    <tr><td><span class="method m-post">POST</span></td><td><code class="mono">/dishes/create/</code></td><td>Добавить блюдо</td><td><span class="badge b-admin">Админ</span></td></tr>
+                    <tr><td><span class="method m-post">POST</span></td><td><code class="mono">/orders/create/</code></td><td>Оформить заказ</td><td><span class="badge b-client">Клиент</span></td></tr>
+                    <tr><td><span class="method m-get">GET</span></td><td><code class="mono">/orders/</code></td><td>Список заказов</td><td><span class="badge b-client">Клиент/Админ</span></td></tr>
+                    <tr><td><span class="method m-patch">PATCH</span></td><td><code class="mono">/orders/{id}/status/</code></td><td>Сменить статус</td><td><span class="badge b-admin">Админ</span></td></tr>
+                    <tr><td><span class="method m-patch">PATCH</span></td><td><code class="mono">/orders/{id}/cancel/</code></td><td>Отменить заказ</td><td><span class="badge b-client">Владелец</span></td></tr>
+                    <tr><td><span class="method m-post">POST</span></td><td><code class="mono">/favorites/create/</code></td><td>В избранное</td><td><span class="badge b-client">Клиент</span></td></tr>
+                    <tr><td><span class="method m-get">GET</span></td><td><code class="mono">/docs/</code></td><td>Swagger-документация</td><td><span class="badge b-guest">Все</span></td></tr>
+                </table>
+            </div>
+        </div>
+    </section>
+
+    <!-- ========== СЛАЙД 7: Интересные решения ========== -->
+    <section class="slide">
+        <div style="display:flex; flex-direction:column; height:100%;">
+            <div class="reveal title-white">Интересные решения</div>
+            <div class="reveal subtitle">Куда уходит заказ клиента — и что с ним происходит</div>
+            <div class="live-flow">
+                <div class="live-node">
+                    <div class="big-icon">🧾</div>
+                    <h3>Клиент</h3>
+                    <p>Отправляет заказ со списком блюд и адресом</p>
+                </div>
+                <div class="live-connector">
+                    <div class="pulse-line"><div class="pulse-dot"></div></div>
+                    <div class="lbl">данные</div>
+                </div>
+                <div class="live-node">
+                    <div class="big-icon">🛡️</div>
+                    <h3>Валидация</h3>
+                    <p>Отклоняет пустой заказ и недоступное блюдо</p>
+                    <span class="mini-chip">is_available = False</span>
+                </div>
+                <div class="live-connector">
+                    <div class="pulse-line"><div class="pulse-dot"></div></div>
+                    <div class="lbl">проверено</div>
+                </div>
+                <div class="live-node">
+                    <div class="big-icon">💶</div>
+                    <h3>Фиксация цены</h3>
+                    <p>Цена сохраняется в позиции на момент заказа</p>
+                    <span class="mini-chip">price_at_order</span>
+                </div>
+            </div>
+            <div class="reveal subtitle" style="text-align:center; width:100%; margin-bottom: 0;">
+                Сумма со скидкой считается автоматически: <span style="color:#7ee0a3;">total_price = subtotal − скидка</span>
+            </div>
+            <div class="reveal muted" style="text-align:center; width:100%; margin-top: 0.8vh;">
+                Промокод «Пятёрка» −20% · письмо админу о заказе через сигнал — всё при создании заказа
+            </div>
+        </div>
+    </section>
+
+    <!-- ========== СЛАЙД 8: Демо-цикл ========== -->
+    <section class="slide">
+        <div style="display:flex; flex-direction:column; height:100%;">
+            <div class="reveal title-white">Полный цикл — как это работает</div>
+            <div class="reveal subtitle">Путешествие заказа по системе в реальном времени</div>
+            <div class="live-flow vertical">
+                <div class="live-node wide">
+                    <h3>1 · Регистрация</h3>
+                    <p style="font-size:1.6vh; font-family:'Consolas',monospace;">POST /register/ → <span style="color:#7ee0a3;">201 Created</span></p>
+                </div>
+                <div class="live-connector">
+                    <div class="pulse-line"><div class="pulse-dot"></div></div>
+                    <div class="lbl">JWT-токены</div>
+                </div>
+                <div class="live-node wide">
+                    <h3>2 · Меню</h3>
+                    <p style="font-size:1.6vh; font-family:'Consolas',monospace;">GET /dishes/?category=1 → <span style="color:#7ee0a3;">200 OK</span></p>
+                </div>
+                <div class="live-connector">
+                    <div class="pulse-line"><div class="pulse-dot"></div></div>
+                    <div class="lbl">выбор блюд</div>
+                </div>
+                <div class="live-node wide">
+                    <h3>3 · Оформление заказа + промокод</h3>
+                    <p style="font-size:1.6vh; font-family:'Consolas',monospace;">POST /orders/create/ → <span style="color:#7ee0a3;">«Пятёрка» −20%</span></p>
+                    <span class="mini-chip">1000 ₽ → 800 ₽</span>
+                </div>
+                <div class="live-connector">
+                    <div class="pulse-line"><div class="pulse-dot"></div></div>
+                    <div class="lbl">заказ создан</div>
+                </div>
+                <div class="live-node wide">
+                    <h3>4 · Уведомление админу</h3>
+                    <p style="font-size:1.6vh; font-family:'Consolas',monospace;">сигнал post_save → <span style="color:#7ee0a3;">письмо на почту</span></p>
+                    <span class="mini-chip">send_mail()</span>
+                </div>
+            </div>
+            <div class="reveal subtitle" style="text-align:center; width:100%; margin-bottom: 0;">
+                Дальше админ ведёт статусы, клиент видит их у себя — цепочка ниже
+            </div>
+        </div>
+    </section>
+
+    <!-- ========== СЛАЙД 9: Структура проекта ========== -->
+    <section class="slide">
+        <div style="display:flex; flex-direction:column; height:100%;">
+            <div class="reveal title-white">Структура проекта</div>
+            <div class="reveal subtitle">Как запрос клиента проходит по слоям кода</div>
+            <div class="live-flow">
+                <div class="live-node">
+                    <div class="big-icon">🌐</div>
+                    <h3>urls.py</h3>
+                    <p>Адреса API — куда идёт запрос</p>
+                    <span class="mini-chip">маршруты</span>
+                </div>
+                <div class="live-connector">
+                    <div class="pulse-line"><div class="pulse-dot"></div></div>
+                    <div class="lbl">запрос</div>
+                </div>
+                <div class="live-node">
+                    <div class="big-icon">🎛️</div>
+                    <h3>views.py</h3>
+                    <p>Решает, что сделать и выдаёт ответ</p>
+                    <span class="mini-chip">права доступа</span>
+                </div>
+                <div class="live-connector">
+                    <div class="pulse-line"><div class="pulse-dot"></div></div>
+                    <div class="lbl">данные</div>
+                </div>
+                <div class="live-node">
+                    <div class="big-icon">🧾</div>
+                    <h3>serializers.py</h3>
+                    <p>Проверяет ввод и готовит ответ клиенту</p>
+                    <span class="mini-chip">валидация</span>
+                </div>
+            </div>
+            <div class="reveal subtitle" style="text-align:center; width:100%; margin-bottom: 0;">
+                Внизу — модели и вспомогательные слои: <span style="color:#7ee0a3;">models · filters · pagination · permissions · admin · tests</span>
+            </div>
+            <div class="reveal muted" style="text-align:center; width:100%; margin-top: 1vh;">
+                Лёгкий код без лишних абстракций — его легко читать и развивать
+            </div>
+        </div>
+    </section>
+
+    <!-- ========== СЛАЙД 10: Итоги ========== -->
+    <section class="slide">
+        <div style="display:flex; flex-direction:column; height:100%;">
+            <div class="reveal title-white">Итоги</div>
+            <div class="reveal subtitle">Что дал проект</div>
+            <div class="stats">
+                <div class="stat">
+                    <div class="num">21</div>
+                    <div class="lblc">API-эндпоинт</div>
+                </div>
+                <div class="stat">
+                    <div class="num">7</div>
+                    <div class="lblc">таблиц БД</div>
+                </div>
+                <div class="stat">
+                    <div class="num">6</div>
+                    <div class="lblc">статусов заказа</div>
+                </div>
+                <div class="stat">
+                    <div class="num">23</div>
+                    <div class="lblc">теста · все зелёные</div>
+                </div>
+            </div>
+            <div class="reveal" style="margin-top: 3vh; display:flex; gap:1vw; justify-content:center; flex-wrap:wrap;">
+                <span class="chip">Авторизация JWT</span>
+                <span class="chip">Профиль</span>
+                <span class="chip">Меню и фильтры</span>
+                <span class="chip">Заказы</span>
+                <span class="chip">Избранное</span>
+                <span class="chip">Права доступа</span>
+                <span class="chip">Swagger</span>
+            </div>
+            <div class="reveal big-red" style="text-align:center; margin-top: 3vh;">Спасибо за внимание!</div>
+        </div>
+    </section>
+
+    <!-- ========== Навигация ========== -->
+    <div id="nav">
+        <button onclick="prev()">←</button>
+        <div id="dots"></div>
+        <span id="counter">1 / 10</span>
+        <button onclick="next()">→</button>
+    </div>
+
+    <script>
+        // ---------- Сцена и масштабирование ----------
+        const stage = document.getElementById('stage');
+        const slides = Array.from(document.querySelectorAll('.slide'));
+
+        // собираем слайды внутрь стейджа
+        slides.forEach(s => stage.appendChild(s));
+
+        // ---------- Состояние ----------
+        let current = 0;
+
+        // слайд занимает весь экран целиком
+        function fit() {
+            stage.style.width = window.innerWidth + 'px';
+            stage.style.height = window.innerHeight + 'px';
+            stage.style.transform = 'scale(1)';
+        }
+        window.addEventListener('resize', fit);
+        fit();
+
+        // ---------- Точки ----------
+        const dotsWrap = document.getElementById('dots');
+        slides.forEach((_, i) => {
+            const d = document.createElement('span');
+            d.className = 'dot' + (i === 0 ? ' on' : '');
+            d.onclick = () => go(i);
+            dotsWrap.appendChild(d);
+        });
+        const dots = dotsWrap.children;
+        const counter = document.getElementById('counter');
+        const progress = document.getElementById('progress');
+
+        function updateUI() {
+            counter.textContent = (current + 1) + ' / ' + slides.length;
+            progress.style.width = ((current + 1) / slides.length * 100) + '%';
+            for (let i = 0; i < dots.length; i++) dots[i].className = 'dot' + (i === current ? ' on' : '');
+        }
+
+        function go(n) {
+            if (n < 0 || n >= slides.length) return;
+            if (n === current) {
+                // клик по текущему слайду — перезапускаем анимации
+                const s = slides[n];
+                s.classList.remove('active');
+                void s.offsetWidth;
+                s.classList.add('active');
+                return;
+            }
+            const out = slides[current];
+            const dir = n > current;
+            current = n;
+
+            out.classList.add('leaving');
+            out.classList.remove('active');
+            setTimeout(() => {
+                out.classList.remove('leaving');
+                out.style.display = 'none';
+            }, 600);
+
+            const inc = slides[n];
+            // рестарт анимаций
+            inc.style.display = 'flex';
+            void inc.offsetWidth;
+            inc.classList.add('active');
+
+            updateUI();
+        }
+
+        function next() { go(current + 1); }
+        function prev() { go(current - 1); }
+
+        // ---------- Клавиатура ----------
+        document.addEventListener('keydown', (e) => {
+            if (e.key === 'ArrowRight' || e.key === ' ') { next(); e.preventDefault(); }
+            if (e.key === 'ArrowLeft') prev();
+            if (e.key === 'Home') go(0);
+            if (e.key === 'End') go(slides.length - 1);
+        });
+
+        // ---------- Клик по зонам экрана ----------
+        document.addEventListener('click', (e) => {
+            if (e.target.closest('#nav')) return;
+            const x = e.clientX;
+            if (x < window.innerWidth * 0.3) prev();
+            else if (x > window.innerWidth * 0.7) next();
+        });
+
+        // swipe (тач)
+        let touchX = null;
+        document.addEventListener('touchstart', e => touchX = e.touches[0].clientX, { passive: true });
+        document.addEventListener('touchend', e => {
+            if (touchX === null) return;
+            const dx = e.changedTouches[0].clientX - touchX;
+            if (dx < -50) next();
+            if (dx > 50) prev();
+            touchX = null;
+        }, { passive: true });
+
+        // ---------- 3D-наклон карточек за курсором ----------
+        document.querySelectorAll('.card').forEach(card => {
+            card.addEventListener('mousemove', (e) => {
+                const r = card.getBoundingClientRect();
+                const dx = (e.clientX - r.left) / r.width - 0.5;
+                const dy = (e.clientY - r.top) / r.height - 0.5;
+                card.style.transform = `translateY(-6px) rotateY(${dx * 10}deg) rotateX(${dy * -8}deg)`;
+            });
+            card.addEventListener('mouseleave', () => {
+                card.style.transform = '';
+            });
+        });
+
+        updateUI();
+        go(0);
+    </script>
+</body>
+</html>

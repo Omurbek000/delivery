@@ -93,6 +93,30 @@ class Favorite(models.Model):
         return f"{self.user} — {self.dish}"
 
 
+class PromoCode(models.Model):
+    """Промокод со скидкой на заказ."""
+
+    code = models.CharField('Код', max_length=50, unique=True)
+    discount_percent = models.DecimalField(
+        'Скидка, %', max_digits=5, decimal_places=2,
+        validators=[MinValueValidator(0)],
+    )
+    is_active = models.BooleanField('Активен', default=True)
+    valid_until = models.DateField('Действует до', blank=True, null=True)
+    min_order_amount = models.DecimalField(
+        'Минимальная сумма заказа', max_digits=10, decimal_places=2,
+        default=0,
+    )
+
+    class Meta:
+        verbose_name = 'Промокод'
+        verbose_name_plural = 'Промокоды'
+        ordering = ['code']
+
+    def __str__(self):
+        return self.code
+
+
 class Order(models.Model):
     """Заказ клиента."""
 
@@ -112,6 +136,13 @@ class Order(models.Model):
     total_price = models.DecimalField(
         'Итоговая сумма', max_digits=10, decimal_places=2, default=0,
     )
+    promo_code = models.ForeignKey(
+        PromoCode, on_delete=models.SET_NULL, null=True, blank=True,
+        related_name='promo_order', verbose_name='Промокод',
+    )
+    discount_amount = models.DecimalField(
+        'Сумма скидки', max_digits=10, decimal_places=2, default=0,
+    )
     comment = models.TextField('Комментарий', blank=True)
 
     class Meta:
@@ -126,6 +157,13 @@ class Order(models.Model):
         """Пересчитывает итоговую сумму по позициям заказа."""
         total = sum(item.price_at_order * item.quantity for item in self.order_item.all())
         return total
+
+    def apply_promo(self):
+        """Применяет промокод и возвращает сумму скидки (0, если кода нет)."""
+        if not self.promo_code:
+            return 0
+        discount = self.calculate_total() * self.promo_code.discount_percent / 100
+        return min(discount, self.calculate_total())
 
 
 class OrderItem(models.Model):
