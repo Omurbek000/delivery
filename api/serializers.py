@@ -6,7 +6,7 @@ from phonenumber_field.serializerfields import PhoneNumberField
 from rest_framework import serializers
 from rest_framework_simplejwt.tokens import RefreshToken
 
-from .models import Category, Dish, Favorite, Order, OrderItem, PromoCode, User
+from .models import Category, Dish, Favorite, Order, OrderItem, Promo, PromoCode, User
 
 
 # Пользователи и авторизация
@@ -167,6 +167,34 @@ class FavoriteSerializer(serializers.ModelSerializer):
     class Meta:
         model = Favorite
         fields = ('id', 'dish', 'dish_id', 'created_at')
+
+
+# Акции
+
+class PromoSerializer(serializers.ModelSerializer):
+    """Сериализатор акции главной страницы."""
+
+    dish = DishSerializer(read_only=True)
+    new_price = serializers.SerializerMethodField()
+    image = serializers.SerializerMethodField()
+
+    class Meta:
+        model = Promo
+        fields = (
+            'id', 'title', 'description', 'old_price', 'new_price',
+            'discount_percent', 'dish', 'image', 'sort_order',
+        )
+
+    def get_new_price(self, obj):
+        """Возвращает цену со скидкой."""
+        return obj.get_new_price()
+
+    def get_image(self, obj):
+        """Возвращает фото акции, а если его нет — фото блюда."""
+        image = obj.image or obj.dish.image
+        if image:
+            return image.url
+        return None
 
 
 # Заказы

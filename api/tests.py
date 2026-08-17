@@ -6,7 +6,7 @@ from django.core import mail
 from django.test import TestCase, override_settings
 from rest_framework.test import APIClient
 
-from .models import Category, Dish, Order, PromoCode, User
+from .models import Category, Dish, Order, Promo, PromoCode, User
 
 
 class ApiTestCase(TestCase):
@@ -271,3 +271,36 @@ class EmailTests(ApiTestCase):
         }, format='json')
         self.assertEqual(response.status_code, 201)
         self.assertEqual(len(mail.outbox), 0)
+
+
+class PromoTests(ApiTestCase):
+    """Тесты акций главной страницы."""
+
+    def make_promo(self, title='Филадельфия', **kwargs):
+        """Создаёт акцию и возвращает объект."""
+        defaults = {'old_price': '490.00', 'discount_percent': '20.00'}
+        defaults.update(kwargs)
+        return Promo.objects.create(title=title, dish=self.dish, **defaults)
+
+    def test_promo_list_shows_active(self):
+        """Активная акция попадает в список на главной."""
+        self.make_promo(title='Филадельфия')
+        response = self.client.get('/promo/')
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(len(response.data['results']), 1)
+        self.assertEqual(response.data['results'][0]['title'], 'Филадельфия')
+
+    def test_promo_list_hides_inactive(self):
+        """Неактивные акции не показываются."""
+        self.make_promo(title='Скрытая', is_active=False)
+        response = self.client.get('/promo/')
+        self.assertEqual(response.data['results'], [])
+
+    def test_promo_has_dish_and_new_price(self):
+        """Акция возвращает цену со скидкой и вложенное блюдо."""
+        self.make_promo(title='Калифорния', old_price='450.00', discount_percent='15.00')
+        response = self.client.get('/promo/')
+        promo = response.data['results'][0]
+        self.assertEqual(promo['old_price'], '450.00')
+        self.assertEqual(promo['new_price'], Decimal('382.50'))
+        self.assertEqual(promo['dish']['name'], 'Филадельфия')

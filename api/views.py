@@ -6,7 +6,7 @@ from rest_framework.permissions import AllowAny, IsAuthenticated
 from rest_framework.response import Response
 
 from .filters import DishFilter, OrderFilter
-from .models import STATUS_CHOICES, Category, Dish, Favorite, Order
+from .models import STATUS_CHOICES, Category, Dish, Favorite, Order, Promo
 from .permissions import IsAdminOrReadOnly, IsOwnerOrAdmin
 from .serializers import (
     CategorySerializer,
@@ -19,6 +19,7 @@ from .serializers import (
     OrderCreateSerializer,
     OrderSerializer,
     ProfileSerializer,
+    PromoSerializer,
     RegisterSerializer,
     UserSerializer,
 )
@@ -204,6 +205,21 @@ class FavoriteDeleteView(generics.DestroyAPIView):
         if getattr(self, 'swagger_fake_view', False):
             return Favorite.objects.none()
         return Favorite.objects.filter(user=self.request.user)
+
+
+# Акции
+
+class PromoListView(generics.ListAPIView):
+    """Список активных акций для главной страницы. Доступно всем."""
+
+    serializer_class = PromoSerializer
+    permission_classes = (AllowAny,)
+
+    def get_queryset(self):
+        """Возвращает только активные акции в нужном порядке."""
+        if getattr(self, 'swagger_fake_view', False):
+            return Promo.objects.none()
+        return Promo.objects.filter(is_active=True)
 
 
 # Заказы

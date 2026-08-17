@@ -117,6 +117,40 @@ class PromoCode(models.Model):
         return self.code
 
 
+class Promo(models.Model):
+    """Рекламная акция на главной странице (карточка со скидкой)."""
+
+    title = models.CharField('Название', max_length=100)
+    description = models.TextField('Описание', blank=True)
+    old_price = models.DecimalField(
+        'Старая цена', max_digits=10, decimal_places=2,
+        validators=[MinValueValidator(0)],
+    )
+    discount_percent = models.DecimalField(
+        'Скидка, %', max_digits=5, decimal_places=2,
+        validators=[MinValueValidator(0)],
+    )
+    dish = models.ForeignKey(
+        Dish, on_delete=models.CASCADE, related_name='promo_dish',
+        verbose_name='Блюдо',
+    )
+    image = models.ImageField('Фото акции', upload_to='promos/', blank=True, null=True)
+    is_active = models.BooleanField('Активна', default=True)
+    sort_order = models.PositiveIntegerField('Порядок отображения', default=0)
+
+    class Meta:
+        verbose_name = 'Акция'
+        verbose_name_plural = 'Акции'
+        ordering = ['sort_order', 'id']
+
+    def __str__(self):
+        return self.title
+
+    def get_new_price(self):
+        """Возвращает цену со скидкой."""
+        return self.old_price * (1 - self.discount_percent / 100)
+
+
 class Order(models.Model):
     """Заказ клиента."""
 

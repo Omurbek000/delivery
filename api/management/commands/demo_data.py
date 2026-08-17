@@ -2,13 +2,13 @@
 
 from django.core.management.base import BaseCommand
 
-from api.models import Category, Dish, PromoCode
+from api.models import Category, Dish, Promo, PromoCode
 
 
 class Command(BaseCommand):
-    """Заполняет базу категориями, блюдами и промокодом для демонстрации."""
+    """Заполняет базу категориями, блюдами, акциями и промокодом для демонстрации."""
 
-    help = 'Заполняет базу демо-данными: категории, блюда и промокод ресторана «Онигири»'
+    help = 'Заполняет базу демо-данными: категории, блюда, акции и промокод ресторана «Онигири»'
 
     def handle(self, *args, **options):
         """Создаёт категории и блюда, если их ещё нет."""
@@ -54,7 +54,33 @@ class Command(BaseCommand):
             code='Пятёрка', defaults={'discount_percent': '20.00'},
         )
 
+        promos = [
+            {'title': 'Филадельфия', 'description': 'Лосось, сливочный сыр, авокадо · 8 шт', 'dish': 'Филадельфия', 'old_price': '490.00', 'discount_percent': '20.00', 'sort_order': 1},
+            {'title': 'Хот-ролл', 'description': 'Запечённый, с лососем и сыром · 8 шт', 'dish': 'Хот-ролл', 'old_price': '550.00', 'discount_percent': '15.00', 'sort_order': 2},
+            {'title': 'Калифорния', 'description': 'Краб, авокадо, икра тобико · 8 шт', 'dish': 'Калифорния', 'old_price': '450.00', 'discount_percent': '15.00', 'sort_order': 3},
+            {'title': 'Спайси тунец', 'description': 'Тунец, острый соус, рис · 8 шт', 'dish': 'Спайси тунец', 'old_price': '520.00', 'discount_percent': '12.00', 'sort_order': 4},
+            {'title': 'Ролл с лососем', 'description': 'Лосось, огурец, рис · 8 шт', 'dish': 'Ролл с лососем', 'old_price': '380.00', 'discount_percent': '10.00', 'sort_order': 5},
+            {'title': 'Ролл с угрём', 'description': 'Угорь, огурец, соус унаги · 8 шт', 'dish': 'Ролл с угрём', 'old_price': '420.00', 'discount_percent': '10.00', 'sort_order': 6},
+        ]
+
+        promo_created_count = 0
+        for promo_data in promos:
+            dish = Dish.objects.get(name=promo_data['dish'])
+            _, was_created = Promo.objects.get_or_create(
+                title=promo_data['title'],
+                defaults={
+                    'description': promo_data['description'],
+                    'old_price': promo_data['old_price'],
+                    'discount_percent': promo_data['discount_percent'],
+                    'dish': dish,
+                    'sort_order': promo_data['sort_order'],
+                },
+            )
+            if was_created:
+                promo_created_count += 1
+
         self.stdout.write(self.style.SUCCESS(f'Готово: создано {created} новых блюд'))
+        self.stdout.write(self.style.SUCCESS(f'Создано {promo_created_count} новых акций'))
         if promo_created:
             self.stdout.write(self.style.SUCCESS(f'Промокод «{promo.code}» создан (скидка {promo.discount_percent}%)'))
         else:

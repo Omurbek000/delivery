@@ -25,6 +25,9 @@ urlpatterns = [
     path('dishes/create/', views.DishCreateView.as_view(), name='dish-create'),
     path('dishes/<int:pk>/edit/', views.DishUpdateDeleteView.as_view(), name='dish-edit'),
 
+    # Акции
+    path('promo/', views.PromoListView.as_view(), name='promo-list'),
+
     # Избранное
     path('favorites/', views.FavoriteListView.as_view(), name='favorite-list'),
     path('favorites/create/', views.FavoriteCreateView.as_view(), name='favorite-create'),

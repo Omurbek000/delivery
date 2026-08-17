@@ -2,7 +2,7 @@
 
 from django.contrib import admin
 
-from .models import Category, Dish, Favorite, Order, OrderItem, PromoCode, User
+from .models import Category, Dish, Favorite, Order, OrderItem, Promo, PromoCode, User
 
 
 @admin.register(User)
@@ -55,6 +55,15 @@ class PromoCodeAdmin(admin.ModelAdmin):
     list_display = ('code', 'discount_percent', 'is_active', 'valid_until', 'min_order_amount')
     list_filter = ('is_active',)
     search_fields = ('code',)
+
+
+@admin.register(Promo)
+class PromoAdmin(admin.ModelAdmin):
+    """Админка акций главной страницы."""
+
+    list_display = ('title', 'dish', 'old_price', 'discount_percent', 'is_active', 'sort_order')
+    list_filter = ('is_active',)
+    search_fields = ('title',)
 
 
 @admin.register(OrderItem)
