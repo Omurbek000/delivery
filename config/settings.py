@@ -55,12 +55,14 @@ INSTALLED_APPS = [
     'allauth.account',
     'allauth.socialaccount',
     'allauth.socialaccount.providers.google',
+    'corsheaders',
 
     # Наше приложение
     'api',
 ]
 
 MIDDLEWARE = [
+    'corsheaders.middleware.CorsMiddleware',
     'django.middleware.security.SecurityMiddleware',
     'django.contrib.sessions.middleware.SessionMiddleware',
     'django.middleware.common.CommonMiddleware',
@@ -198,3 +200,8 @@ EMAIL_HOST_PASSWORD = os.getenv('EMAIL_HOST_PASSWORD', '')
 
 # Кому слать уведомления о новых заказах
 ADMIN_EMAIL = os.getenv('ADMIN_EMAIL', '')
+
+
+# CORS — разрешаем локальному макету (ui-mockup-main.html) обращаться к API для теста.
+# Для боевого сервера замени на список своих доменов.
+CORS_ALLOW_ALL_ORIGINS = True

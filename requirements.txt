@@ -7,5 +7,6 @@ phonenumberslite
 drf-yasg
 Pillow
 django-allauth
+django-cors-headers
 requests
 python-dotenv
