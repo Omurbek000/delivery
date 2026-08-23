@@ -666,6 +666,7 @@
         .m-get { background: rgba(90,200,120,0.15); color: #6fd68a; }
         .m-post { background: rgba(90,140,220,0.15); color: #7eb0ff; }
         .m-patch { background: rgba(255,184,77,0.15); color: #ffc46b; }
+        .m-delete { background: rgba(255,77,77,0.15); color: #ff8080; }
 
         code.mono {
             font-family: 'Consolas', monospace;
@@ -846,7 +847,7 @@
                     <h3>Swagger + тесты</h3>
                     <ul>
                         <li>Автодокументация API</li>
-                        <li>23 теста покрывают сценарии</li>
+                        <li>27 тестов покрывают сценарии</li>
                         <li>SQLite для разработки</li>
                     </ul>
                 </div>
@@ -884,7 +885,23 @@
                             <li>status</li>
                             <li>delivery address</li>
                             <li>total_price</li>
+                            <li class="fk">promo_code [FK]</li>
                             <li>comment</li>
+                        </ul>
+                    </div>
+                    <div class="rel">
+                        <div class="graphic"><div class="runner" style="animation-delay:-1s;"></div></div>
+                        <div class="lbl">* ← 1</div>
+                    </div>
+                    <div class="entity">
+                        <div class="head">PromoCode</div>
+                        <ul>
+                            <li class="pk">id [PK]</li>
+                            <li>code</li>
+                            <li>discount_percent</li>
+                            <li>is_active</li>
+                            <li>valid_until</li>
+                            <li>min_order_amount</li>
                         </ul>
                     </div>
                 </div>
@@ -912,7 +929,7 @@
                     </div>
                     <div class="rel">
                         <div class="graphic"><div class="runner"></div></div>
-                        <div class="lbl">* ↔ *</div>
+                        <div class="lbl">1 → *</div>
                     </div>
                     <div class="entity">
                         <div class="head">OrderItem</div>
@@ -927,23 +944,39 @@
                 </div>
                 <div class="er-row">
                     <div class="entity">
+                        <div class="head">Promo</div>
+                        <ul>
+                            <li class="pk">id [PK]</li>
+                            <li class="fk">dish [FK]</li>
+                            <li>title, description</li>
+                            <li>old_price</li>
+                            <li>discount_percent</li>
+                            <li>is_active</li>
+                        </ul>
+                    </div>
+                    <div class="rel">
+                        <div class="graphic"><div class="runner" style="animation-delay:-0.8s;"></div></div>
+                        <div class="lbl">* → 1</div>
+                    </div>
+                    <div class="entity">
                         <div class="head">Favorite</div>
                         <ul>
                             <li class="pk">id [PK]</li>
                             <li class="fk">user [FK]</li>
                             <li class="fk">dish [FK]</li>
+                            <li>unique_together</li>
                         </ul>
                     </div>
                     <div class="rel">
                         <div class="graphic"><div class="runner" style="animation-delay:-1.2s;"></div></div>
-                        <div class="lbl">* ↔ *</div>
+                        <div class="lbl">N → 1</div>
                     </div>
                     <div class="entity">
                         <div class="head">«Избранное»</div>
                         <ul>
-                            <li class="fk">user + dish</li>
                             <li>связь многие-ко-многим</li>
-                            <li>через отдельную таблицу</li>
+                            <li>через промежуточную таблицу</li>
+                            <li>уникальная пара user + dish</li>
                         </ul>
                     </div>
                 </div>
@@ -1020,15 +1053,24 @@
                     <tr><th>Метод</th><th>Эндпоинт</th><th>Что делает</th><th>Доступ</th></tr>
                     <tr><td><span class="method m-post">POST</span></td><td><code class="mono">/register/</code></td><td>Регистрация</td><td><span class="badge b-guest">Все</span></td></tr>
                     <tr><td><span class="method m-post">POST</span></td><td><code class="mono">/login/</code></td><td>Вход, JWT-токены</td><td><span class="badge b-guest">Все</span></td></tr>
+                    <tr><td><span class="method m-post">POST</span></td><td><code class="mono">/logout/</code></td><td>Выход (blacklist)</td><td><span class="badge b-client">Клиент</span></td></tr>
+                    <tr><td><span class="method m-post">POST</span></td><td><code class="mono">/token/refresh/</code></td><td>Обновление токена</td><td><span class="badge b-guest">Все</span></td></tr>
                     <tr><td><span class="method m-get">GET</span></td><td><code class="mono">/profile/</code></td><td>Профиль</td><td><span class="badge b-client">Клиент</span></td></tr>
+                    <tr><td><span class="method m-post">POST</span></td><td><code class="mono">/profile/password/</code></td><td>Смена пароля</td><td><span class="badge b-client">Клиент</span></td></tr>
+                    <tr><td><span class="method m-post">POST</span></td><td><code class="mono">/profile/phone/</code></td><td>Смена телефона</td><td><span class="badge b-client">Клиент</span></td></tr>
                     <tr><td><span class="method m-get">GET</span></td><td><code class="mono">/categories/</code></td><td>Список категорий</td><td><span class="badge b-guest">Все</span></td></tr>
+                    <tr><td><span class="method m-post">POST</span></td><td><code class="mono">/categories/create/</code></td><td>Создать категорию</td><td><span class="badge b-admin">Админ</span></td></tr>
                     <tr><td><span class="method m-get">GET</span></td><td><code class="mono">/dishes/?category=</code></td><td>Блюда с фильтром</td><td><span class="badge b-guest">Все</span></td></tr>
+                    <tr><td><span class="method m-get">GET</span></td><td><code class="mono">/dishes/&lt;id&gt;/</code></td><td>Одно блюдо</td><td><span class="badge b-guest">Все</span></td></tr>
                     <tr><td><span class="method m-post">POST</span></td><td><code class="mono">/dishes/create/</code></td><td>Добавить блюдо</td><td><span class="badge b-admin">Админ</span></td></tr>
+                    <tr><td><span class="method m-patch">PATCH</span></td><td><code class="mono">/dishes/&lt;id&gt;/edit/</code></td><td>Редакт./удал. блюда</td><td><span class="badge b-admin">Админ</span></td></tr>
+                    <tr><td><span class="method m-get">GET</span></td><td><code class="mono">/promo/</code></td><td>Список акций</td><td><span class="badge b-guest">Все</span></td></tr>
                     <tr><td><span class="method m-post">POST</span></td><td><code class="mono">/orders/create/</code></td><td>Оформить заказ</td><td><span class="badge b-client">Клиент</span></td></tr>
                     <tr><td><span class="method m-get">GET</span></td><td><code class="mono">/orders/</code></td><td>Список заказов</td><td><span class="badge b-client">Клиент/Админ</span></td></tr>
-                    <tr><td><span class="method m-patch">PATCH</span></td><td><code class="mono">/orders/{id}/status/</code></td><td>Сменить статус</td><td><span class="badge b-admin">Админ</span></td></tr>
-                    <tr><td><span class="method m-patch">PATCH</span></td><td><code class="mono">/orders/{id}/cancel/</code></td><td>Отменить заказ</td><td><span class="badge b-client">Владелец</span></td></tr>
+                    <tr><td><span class="method m-patch">PATCH</span></td><td><code class="mono">/orders/&lt;id&gt;/status/</code></td><td>Сменить статус</td><td><span class="badge b-admin">Админ</span></td></tr>
+                    <tr><td><span class="method m-patch">PATCH</span></td><td><code class="mono">/orders/&lt;id&gt;/cancel/</code></td><td>Отменить заказ</td><td><span class="badge b-client">Владелец</span></td></tr>
                     <tr><td><span class="method m-post">POST</span></td><td><code class="mono">/favorites/create/</code></td><td>В избранное</td><td><span class="badge b-client">Клиент</span></td></tr>
+                    <tr><td><span class="method m-delete">DELETE</span></td><td><code class="mono">/favorites/&lt;id&gt;/delete/</code></td><td>Удалить из избранного</td><td><span class="badge b-client">Клиент</span></td></tr>
                     <tr><td><span class="method m-get">GET</span></td><td><code class="mono">/docs/</code></td><td>Swagger-документация</td><td><span class="badge b-guest">Все</span></td></tr>
                 </table>
             </div>
@@ -1168,11 +1210,11 @@
             <div class="reveal subtitle">Что дал проект</div>
             <div class="stats">
                 <div class="stat">
-                    <div class="num">21</div>
+                    <div class="num">22</div>
                     <div class="lblc">API-эндпоинт</div>
                 </div>
                 <div class="stat">
-                    <div class="num">7</div>
+                    <div class="num">8</div>
                     <div class="lblc">таблиц БД</div>
                 </div>
                 <div class="stat">
@@ -1180,8 +1222,8 @@
                     <div class="lblc">статусов заказа</div>
                 </div>
                 <div class="stat">
-                    <div class="num">23</div>
-                    <div class="lblc">теста · все зелёные</div>
+                    <div class="num">27</div>
+                    <div class="lblc">тестов · все зелёные</div>
                 </div>
             </div>
             <div class="reveal" style="margin-top: 3vh; display:flex; gap:1vw; justify-content:center; flex-wrap:wrap;">
