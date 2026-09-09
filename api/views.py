@@ -174,24 +174,18 @@ class FavoriteListView(generics.ListAPIView):
 
 
 class FavoriteCreateView(generics.CreateAPIView):
-    """Добавление блюда в избранное."""
+    """Добавление блюда в избранное — через сериализатор с валидацией."""
 
     serializer_class = FavoriteSerializer
     permission_classes = (IsAuthenticated,)
 
-    def create(self, request, *args, **kwargs):
-        """Добавляет блюдо или сообщает, если оно уже в избранном."""
-        dish_id = request.data.get('dish_id')
-        favorite, created = Favorite.objects.get_or_create(
-            user=request.user, dish_id=dish_id,
-        )
-        if not created:
-            return Response(
-                {'detail': 'Блюдо уже в избранном'}, status=status.HTTP_400_BAD_REQUEST,
-            )
-        return Response(
-            FavoriteSerializer(favorite).data, status=status.HTTP_201_CREATED,
-        )
+    def perform_create(self, serializer):
+        """Проверяет дубликат и сохраняет с текущим пользователем."""
+        dish = serializer.validated_data['dish']
+        if Favorite.objects.filter(user=self.request.user, dish=dish).exists():
+            from rest_framework.exceptions import ValidationError
+            raise ValidationError({'dish_id': 'Блюдо уже в избранном'})
+        serializer.save(user=self.request.user)
 
 
 class FavoriteDeleteView(generics.DestroyAPIView):

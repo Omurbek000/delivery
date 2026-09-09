@@ -26,12 +26,20 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 # See https://docs.djangoproject.com/en/5.1/howto/deployment/checklist/
 
 # SECURITY WARNING: keep the secret key used in production secret!
-SECRET_KEY = os.getenv('SECRET_KEY', 'django-insecure-erui)zw$8cd$a60o!((4*!og_2y)!p$8kjrx+r4e5(2(e5#8kf')
+# В проде SECRET_KEY обязан быть в .env, иначе падаем. В dev подставится dev-ключ.
+SECRET_KEY = os.getenv('SECRET_KEY')
+if not SECRET_KEY:
+    if os.getenv('DEBUG', 'True') == 'True':
+        SECRET_KEY = 'django-insecure-erui)zw$8cd$a60o!((4*!og_2y)!p$8kjrx+r4e5(2(e5#8kf'  # только для локальной разработки
+    else:
+        raise ValueError('SECRET_KEY не задан в .env — укажи свой ключ для продакшена')
 
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = os.getenv('DEBUG', 'True') == 'True'
 
-ALLOWED_HOSTS = os.getenv('ALLOWED_HOSTS', '*').split(',')
+ALLOWED_HOSTS = os.getenv('ALLOWED_HOSTS', '127.0.0.1,localhost').split(',')
+# Убираем пустые значения (если ALLOWED_HOSTS="" )
+ALLOWED_HOSTS = [h.strip() for h in ALLOWED_HOSTS if h.strip()]
 
 
 # Application definition
@@ -202,6 +210,13 @@ EMAIL_HOST_PASSWORD = os.getenv('EMAIL_HOST_PASSWORD', '')
 ADMIN_EMAIL = os.getenv('ADMIN_EMAIL', '')
 
 
-# CORS — разрешаем локальному макету (ui-mockup-main.html) обращаться к API для теста.
-# Для боевого сервера замени на список своих доменов.
-CORS_ALLOW_ALL_ORIGINS = True
+# CORS — список разрешенных источников. Через .env можно задать CORS_ALLOWED_ORIGINS.
+# Для локальной разработки (ui-mockup-main.html file://) оставляем True, в проде замени на домены.
+_cors_env = os.getenv('CORS_ALLOWED_ORIGINS', '')
+if _cors_env:
+    CORS_ALLOWED_ORIGINS = [o.strip() for o in _cors_env.split(',') if o.strip()]
+    CORS_ALLOW_ALL_ORIGINS = False
+else:
+    # По умолчанию для dev — разрешаем все, чтобы макет работал без настройки
+    CORS_ALLOW_ALL_ORIGINS = True
+    CORS_ALLOWED_ORIGINS = []

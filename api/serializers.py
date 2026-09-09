@@ -1,7 +1,10 @@
 """Сериализаторы приложения api."""
 
+from collections import Counter
 from datetime import date
+from decimal import Decimal
 
+from django.db import transaction
 from phonenumber_field.serializerfields import PhoneNumberField
 from rest_framework import serializers
 from rest_framework_simplejwt.tokens import RefreshToken
@@ -250,13 +253,17 @@ class OrderCreateSerializer(serializers.ModelSerializer):
         if not items:
             raise serializers.ValidationError('Заказ не может быть пустым')
         dish_ids = [item['dish_id'] for item in items]
-        dishes = Dish.objects.filter(id__in=dish_ids, is_available=True)
-        if len(dishes) != len(set(dish_ids)):
+        unique_ids = set(dish_ids)
+        dishes = Dish.objects.filter(id__in=unique_ids, is_available=True)
+        # Сравниваем по уникальным id — дубликаты в заказе разрешены (склеим в create)
+        if dishes.count() != len(unique_ids):
             raise serializers.ValidationError('Некоторые блюда недоступны')
         return items
 
     def validate_promo_code(self, value):
-        """Находит промокод и проверяет, что он действует."""
+        """Находит промокод и проверяет, что он действует. Пустая строка — значит без промокода."""
+        if not value:
+            return None
         promo = PromoCode.objects.filter(code__iexact=value).first()
         if not promo:
             raise serializers.ValidationError('Промокод не найден')
@@ -267,27 +274,48 @@ class OrderCreateSerializer(serializers.ModelSerializer):
         return promo
 
     def create(self, validated_data):
-        """Создаёт заказ, позиции и пересчитывает итоговую сумму со скидкой."""
+        """Создаёт заказ атомарно: bulk_create, склейка дубликатов, проверка min_order_amount внутри транзакции."""
         items_data = validated_data.pop('items')
         promo = validated_data.pop('promo_code', None)
-        order = Order.objects.create(
-            user=self.context['request'].user, promo_code=promo, **validated_data,
-        )
-        for item_data in items_data:
-            dish = Dish.objects.get(pk=item_data['dish_id'])
-            OrderItem.objects.create(
-                order=order, dish=dish, quantity=item_data['quantity'],
-                price_at_order=dish.price,
+
+        # Склеиваем дубликаты dish_id -> суммируем quantity
+        merged = Counter()
+        for item in items_data:
+            merged[item['dish_id']] += item['quantity']
+
+        with transaction.atomic():
+            order = Order.objects.create(
+                user=self.context['request'].user, promo_code=promo, **validated_data,
             )
-        subtotal = order.calculate_total()
-        if promo and subtotal < promo.min_order_amount:
-            raise serializers.ValidationError(
-                f'Минимальная сумма заказа для этого промокода — {promo.min_order_amount}'
-            )
-        order.discount_amount = order.apply_promo()
-        order.total_price = subtotal - order.discount_amount
-        order.save()
-        return order
+            # Один запрос вместо N
+            dishes = Dish.objects.filter(id__in=merged.keys()).in_bulk()
+            bulk_items = [
+                OrderItem(
+                    order=order,
+                    dish=dishes[dish_id],
+                    quantity=qty,
+                    price_at_order=dishes[dish_id].price,
+                )
+                for dish_id, qty in merged.items()
+            ]
+            OrderItem.objects.bulk_create(bulk_items)
+
+            # Пересчитываем без лишних запросов — уже знаем цены
+            subtotal = sum(item.price_at_order * item.quantity for item in bulk_items)
+            if promo and subtotal < promo.min_order_amount:
+                raise serializers.ValidationError(
+                    f'Минимальная сумма заказа для этого промокода — {promo.min_order_amount}'
+                )
+            # apply_promo использует calculate_total(), но мы уже посчитали subtotal
+            if promo:
+                discount = subtotal * promo.discount_percent / Decimal('100')
+                discount = min(discount, subtotal)
+            else:
+                discount = Decimal('0')
+            order.discount_amount = discount
+            order.total_price = subtotal - discount
+            order.save(update_fields=['discount_amount', 'total_price'])
+            return order
 
     def to_representation(self, instance):
         """Возвращает заказ полностью — со статусом, суммой и позициями."""

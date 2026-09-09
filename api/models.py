@@ -1,7 +1,9 @@
 """Модели приложения api."""
 
+from decimal import Decimal
+
 from django.contrib.auth.models import AbstractUser
-from django.core.validators import MinValueValidator
+from django.core.validators import MaxValueValidator, MinValueValidator
 from django.db import models
 from phonenumber_field.modelfields import PhoneNumberField
 
@@ -99,7 +101,7 @@ class PromoCode(models.Model):
     code = models.CharField('Код', max_length=50, unique=True)
     discount_percent = models.DecimalField(
         'Скидка, %', max_digits=5, decimal_places=2,
-        validators=[MinValueValidator(0)],
+        validators=[MinValueValidator(0), MaxValueValidator(100)],
     )
     is_active = models.BooleanField('Активен', default=True)
     valid_until = models.DateField('Действует до', blank=True, null=True)
@@ -128,7 +130,7 @@ class Promo(models.Model):
     )
     discount_percent = models.DecimalField(
         'Скидка, %', max_digits=5, decimal_places=2,
-        validators=[MinValueValidator(0)],
+        validators=[MinValueValidator(0), MaxValueValidator(100)],
     )
     dish = models.ForeignKey(
         Dish, on_delete=models.CASCADE, related_name='promo_dish',
@@ -147,8 +149,8 @@ class Promo(models.Model):
         return self.title
 
     def get_new_price(self):
-        """Возвращает цену со скидкой."""
-        return self.old_price * (1 - self.discount_percent / 100)
+        """Возвращает цену со скидкой (Decimal, без float)."""
+        return Decimal(self.old_price) * (Decimal('1') - Decimal(self.discount_percent) / Decimal('100'))
 
 
 class Order(models.Model):
@@ -189,15 +191,19 @@ class Order(models.Model):
 
     def calculate_total(self):
         """Пересчитывает итоговую сумму по позициям заказа."""
-        total = sum(item.price_at_order * item.quantity for item in self.order_item.all())
+        total = sum(
+            (item.price_at_order * item.quantity for item in self.order_item.all()),
+            Decimal('0'),
+        )
         return total
 
     def apply_promo(self):
         """Применяет промокод и возвращает сумму скидки (0, если кода нет)."""
         if not self.promo_code:
-            return 0
-        discount = self.calculate_total() * self.promo_code.discount_percent / 100
-        return min(discount, self.calculate_total())
+            return Decimal('0')
+        total = Decimal(self.calculate_total())
+        discount = total * Decimal(self.promo_code.discount_percent) / Decimal('100')
+        return min(discount, total)
 
 
 class OrderItem(models.Model):
