@@ -144,13 +144,18 @@ class OrderTests(ApiTestCase):
         self.assertEqual(order.status, 'created')
 
     def test_change_status_by_admin(self):
-        """Администратор меняет статус заказа."""
+        """Администратор меняет статус заказа по разрешенному переходу."""
         order = Order.objects.create(user=self.user, status='created')
         self.client.force_authenticate(user=self.admin)
-        response = self.client.patch(f'/orders/{order.pk}/status/', {'status': 'delivered'})
+        # created -> confirmed разрешен (см. ALLOWED_TRANSITIONS)
+        response = self.client.patch(f'/orders/{order.pk}/status/', {'status': 'confirmed'})
         self.assertEqual(response.status_code, 200)
         order.refresh_from_db()
-        self.assertEqual(order.status, 'delivered')
+        self.assertEqual(order.status, 'confirmed')
+        # Проверка что неверный прыжок created -> delivered теперь 400
+        order2 = Order.objects.create(user=self.user, status='created')
+        response2 = self.client.patch(f'/orders/{order2.pk}/status/', {'status': 'delivered'})
+        self.assertEqual(response2.status_code, 400)
 
     def test_orders_list_only_own_for_client(self):
         """Клиент видит только свои заказы."""
@@ -244,13 +249,15 @@ class EmailTests(ApiTestCase):
         ADMIN_EMAIL='admin@onigiri.delivery',
     )
     def test_new_order_sends_email_to_admin(self):
-        """Новый заказ отправляет письмо администратору."""
+        """Новый заказ отправляет письмо администратору (через on_commit)."""
         self.client.force_authenticate(user=self.user)
-        response = self.client.post('/orders/create/', {
-            'street': 'Токтогула',
-            'house': '100',
-            'items': [{'dish_id': self.dish.pk, 'quantity': 2}],
-        }, format='json')
+        # on_commit в тестах срабатывает только внутри captureOnCommitCallbacks
+        with self.captureOnCommitCallbacks(execute=True):
+            response = self.client.post('/orders/create/', {
+                'street': 'Токтогула',
+                'house': '100',
+                'items': [{'dish_id': self.dish.pk, 'quantity': 2}],
+            }, format='json')
         self.assertEqual(response.status_code, 201)
         self.assertEqual(len(mail.outbox), 1)
         self.assertIn('Новый заказ', mail.outbox[0].subject)

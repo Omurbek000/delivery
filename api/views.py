@@ -6,7 +6,7 @@ from rest_framework.permissions import AllowAny, IsAuthenticated
 from rest_framework.response import Response
 
 from .filters import DishFilter, OrderFilter
-from .models import STATUS_CHOICES, Category, Dish, Favorite, Order, Promo
+from .models import ALLOWED_TRANSITIONS, STATUS_CHOICES, Category, Dish, Favorite, Order, Promo
 from .permissions import IsAdminOrReadOnly, IsOwnerOrAdmin
 from .serializers import (
     CategorySerializer,
@@ -32,6 +32,7 @@ class RegisterView(generics.CreateAPIView):
 
     serializer_class = RegisterSerializer
     permission_classes = (AllowAny,)
+    throttle_scope = 'login'
 
 
 class CustomLoginView(generics.GenericAPIView):
@@ -39,6 +40,7 @@ class CustomLoginView(generics.GenericAPIView):
 
     serializer_class = CustomLoginSerializer
     permission_classes = (AllowAny,)
+    throttle_scope = 'login'
 
     def post(self, request):
         """Проверяет данные и возвращает токены и данные пользователя."""
@@ -128,7 +130,7 @@ class CategoryCreateView(generics.CreateAPIView):
 class DishListView(generics.ListAPIView):
     """Список блюд. Доступно всем. Можно фильтровать по категории (?category=1)."""
 
-    queryset = Dish.objects.all()
+    queryset = Dish.objects.select_related('category').all()
     serializer_class = DishSerializer
     permission_classes = (AllowAny,)
     filter_backends = (DjangoFilterBackend,)
@@ -138,7 +140,7 @@ class DishListView(generics.ListAPIView):
 class DishDetailView(generics.RetrieveAPIView):
     """Информация об одном блюде. Доступно всем."""
 
-    queryset = Dish.objects.all()
+    queryset = Dish.objects.select_related('category').all()
     serializer_class = DishSerializer
     permission_classes = (AllowAny,)
 
@@ -153,7 +155,7 @@ class DishCreateView(generics.CreateAPIView):
 class DishUpdateDeleteView(generics.RetrieveUpdateDestroyAPIView):
     """Обновление и удаление блюда. Только для админа."""
 
-    queryset = Dish.objects.all()
+    queryset = Dish.objects.select_related('category').all()
     serializer_class = DishSerializer
     permission_classes = (IsAdminOrReadOnly,)
 
@@ -170,7 +172,7 @@ class FavoriteListView(generics.ListAPIView):
         """Возвращает избранное только текущего пользователя."""
         if getattr(self, 'swagger_fake_view', False):
             return Favorite.objects.none()
-        return Favorite.objects.filter(user=self.request.user)
+        return Favorite.objects.select_related('dish', 'dish__category', 'user').filter(user=self.request.user)
 
 
 class FavoriteCreateView(generics.CreateAPIView):
@@ -198,7 +200,7 @@ class FavoriteDeleteView(generics.DestroyAPIView):
         """Возвращает избранное только текущего пользователя."""
         if getattr(self, 'swagger_fake_view', False):
             return Favorite.objects.none()
-        return Favorite.objects.filter(user=self.request.user)
+        return Favorite.objects.select_related('dish', 'dish__category').filter(user=self.request.user)
 
 
 # Акции
@@ -213,7 +215,7 @@ class PromoListView(generics.ListAPIView):
         """Возвращает только активные акции в нужном порядке."""
         if getattr(self, 'swagger_fake_view', False):
             return Promo.objects.none()
-        return Promo.objects.filter(is_active=True)
+        return Promo.objects.select_related('dish', 'dish__category').filter(is_active=True)
 
 
 # Заказы
@@ -236,9 +238,10 @@ class OrderListView(generics.ListAPIView):
         """Клиент видит свои заказы, админ — все."""
         if getattr(self, 'swagger_fake_view', False):
             return Order.objects.none()
+        base = Order.objects.select_related('user', 'promo_code').prefetch_related('order_item__dish__category', 'order_item__dish')
         if self.request.user.is_staff:
-            return Order.objects.all()
-        return Order.objects.filter(user=self.request.user)
+            return base.all()
+        return base.filter(user=self.request.user)
 
 
 class OrderDetailView(generics.RetrieveAPIView):
@@ -251,9 +254,10 @@ class OrderDetailView(generics.RetrieveAPIView):
         """Клиент видит свои заказы, админ — все."""
         if getattr(self, 'swagger_fake_view', False):
             return Order.objects.none()
+        base = Order.objects.select_related('user', 'promo_code').prefetch_related('order_item__dish__category', 'order_item__dish')
         if self.request.user.is_staff:
-            return Order.objects.all()
-        return Order.objects.filter(user=self.request.user)
+            return base.all()
+        return base.filter(user=self.request.user)
 
 
 class OrderCancelView(generics.UpdateAPIView):
@@ -266,9 +270,10 @@ class OrderCancelView(generics.UpdateAPIView):
         """Клиент может отменить только свой заказ."""
         if getattr(self, 'swagger_fake_view', False):
             return Order.objects.none()
+        base = Order.objects.select_related('user', 'promo_code').prefetch_related('order_item__dish')
         if self.request.user.is_staff:
-            return Order.objects.all()
-        return Order.objects.filter(user=self.request.user)
+            return base.all()
+        return base.filter(user=self.request.user)
 
     def update(self, request, *args, **kwargs):
         """Меняет статус заказа на «Отменён», если заказ ещё не принят в работу."""
@@ -298,21 +303,22 @@ class OrderStatusView(generics.UpdateAPIView):
             return Order.objects.none()
         if not self.request.user.is_staff:
             return Order.objects.none()
-        return Order.objects.all()
+        return Order.objects.select_related('user', 'promo_code').prefetch_related('order_item__dish__category').all()
 
     def update(self, request, *args, **kwargs):
-        """Устанавливает статус заказа из переданного значения."""
+        """Устанавливает статус заказа по матрице переходов."""
         order = self.get_object()
         new_status = request.data.get('status')
         if new_status not in dict(STATUS_CHOICES):
             return Response(
                 {'detail': 'Неверный статус'}, status=status.HTTP_400_BAD_REQUEST,
             )
-        if order.status == 'cancelled':
+        allowed = ALLOWED_TRANSITIONS.get(order.status, ())
+        if new_status not in allowed:
             return Response(
-                {'detail': 'Нельзя менять статус отменённого заказа'},
+                {'detail': f'Нельзя перевести заказ из «{order.status}» в «{new_status}». Разрешено: {list(allowed) or "-"}'},
                 status=status.HTTP_400_BAD_REQUEST,
             )
         order.status = new_status
-        order.save()
+        order.save(update_fields=['status'])
         return Response(OrderSerializer(order).data, status=status.HTTP_200_OK)

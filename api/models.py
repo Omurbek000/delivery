@@ -18,11 +18,21 @@ STATUS_CHOICES = (
     ('cancelled', 'Отменён'),
 )
 
+# Разрешенные переходы статусов (матрица)
+ALLOWED_TRANSITIONS = {
+    'created': ('confirmed', 'cancelled'),
+    'confirmed': ('cooking', 'cancelled'),
+    'cooking': ('delivering',),
+    'delivering': ('delivered',),
+    'delivered': (),
+    'cancelled': (),
+}
+
 
 class User(AbstractUser):
     """Пользователь системы. Логин — номер телефона."""
 
-    phone = PhoneNumberField('Номер телефона', unique=True, blank=True, null=True)
+    phone = PhoneNumberField('Номер телефона', unique=True, blank=True, null=True, region='KG')
     photo = models.ImageField('Фото профиля', upload_to='users/', blank=True, null=True)
 
     class Meta:
@@ -103,6 +113,12 @@ class PromoCode(models.Model):
         'Скидка, %', max_digits=5, decimal_places=2,
         validators=[MinValueValidator(0), MaxValueValidator(100)],
     )
+
+    def save(self, *args, **kwargs):
+        """Нормализует код: убирает пробелы по краям."""
+        if self.code:
+            self.code = self.code.strip()
+        super().save(*args, **kwargs)
     is_active = models.BooleanField('Активен', default=True)
     valid_until = models.DateField('Действует до', blank=True, null=True)
     min_order_amount = models.DecimalField(
