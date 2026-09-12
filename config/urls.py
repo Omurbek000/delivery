@@ -24,7 +24,8 @@ schema_view = get_schema_view(
 # Основные маршруты проекта
 urlpatterns = [
     path('admin/', admin.site.urls),  # админка: /admin/
-    path('', include('api.urls')),  # все наши API-маршруты из api/urls.py
+    path('', include('api.urls')),  # старые пути без версии (для обратной совместимости)
+    path('api/v1/', include('api.urls')),  # версионированные пути — рекомендуются для новых клиентов
     path('docs/', schema_view.with_ui('swagger', cache_timeout=0), name='schema-swagger-ui'),  # Swagger: /docs/
     path('accounts/', include('allauth.urls')),  # маршруты allauth (вход через соцсети)
 ] + static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)

@@ -71,7 +71,7 @@ class Dish(models.Model):
         verbose_name='Категория',
     )
     image = models.ImageField('Фото блюда', upload_to='dishes/', blank=True, null=True)
-    is_available = models.BooleanField('Доступно сейчас', default=True)
+    is_available = models.BooleanField('Доступно сейчас', default=True, db_index=True)
 
     class Meta:
         verbose_name = 'Блюдо'
@@ -93,7 +93,7 @@ class Favorite(models.Model):
         Dish, on_delete=models.CASCADE, related_name='favorite_dish',
         verbose_name='Блюдо',
     )
-    created_at = models.DateTimeField('Дата добавления', auto_now_add=True)
+    created_at = models.DateTimeField('Дата добавления', auto_now_add=True, db_index=True)
 
     class Meta:
         verbose_name = 'Избранное'
@@ -113,18 +113,18 @@ class PromoCode(models.Model):
         'Скидка, %', max_digits=5, decimal_places=2,
         validators=[MinValueValidator(0), MaxValueValidator(100)],
     )
-
-    def save(self, *args, **kwargs):
-        """Нормализует код: убирает пробелы по краям."""
-        if self.code:
-            self.code = self.code.strip()
-        super().save(*args, **kwargs)
     is_active = models.BooleanField('Активен', default=True)
     valid_until = models.DateField('Действует до', blank=True, null=True)
     min_order_amount = models.DecimalField(
         'Минимальная сумма заказа', max_digits=10, decimal_places=2,
         default=0,
     )
+
+    def save(self, *args, **kwargs):
+        """Нормализует код: убирает пробелы по краям."""
+        if self.code:
+            self.code = self.code.strip()
+        super().save(*args, **kwargs)
 
     class Meta:
         verbose_name = 'Промокод'
@@ -176,9 +176,9 @@ class Order(models.Model):
         User, on_delete=models.CASCADE, related_name='user_order',
         verbose_name='Пользователь',
     )
-    created_at = models.DateTimeField('Дата создания', auto_now_add=True)
+    created_at = models.DateTimeField('Дата создания', auto_now_add=True, db_index=True)
     status = models.CharField(
-        'Статус', max_length=20, choices=STATUS_CHOICES, default='created',
+        'Статус', max_length=20, choices=STATUS_CHOICES, default='created', db_index=True,
     )
     street = models.CharField('Улица', max_length=100)
     house = models.CharField('Дом', max_length=20)
