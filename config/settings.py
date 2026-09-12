@@ -186,6 +186,7 @@ REST_FRAMEWORK = {
         'anon': '20/min',
         'user': '60/min',
         'login': '5/min',
+        'ai': '30/min',
     },
 }
 
@@ -233,6 +234,26 @@ else:
     CORS_ALLOW_ALL_ORIGINS = True
     CORS_ALLOWED_ORIGINS = []
 
+# AI — цепочка с автопереключением (бесплатные ключи)
+# Порядок: opencode (muse-spark) → gemini → groq → fallback
+GEMINI_API_KEY = os.getenv('GEMINI_API_KEY', '')
+GEMINI_MODEL = os.getenv('GEMINI_MODEL', 'gemini-1.5-flash')
+
+# OpenCode — бесплатный muse-spark в системе (OpenAI-совместимый)
+# Можно указать несколько моделей через запятую — будет автопереключение внутри одного ключа
+OPENCODE_API_KEY = os.getenv('OPENCODE_API_KEY', os.getenv('AI_API_KEY', ''))
+OPENCODE_BASE_URL = os.getenv('OPENCODE_BASE_URL', 'https://api.opencode.ai/v1')
+OPENCODE_MODEL = os.getenv('OPENCODE_MODEL', 'opencode/muse-spark-1.2-contributor-free')
+OPENCODE_MODELS = [m.strip() for m in os.getenv('OPENCODE_MODELS', OPENCODE_MODEL).split(',') if m.strip()]
+
+# Groq — бесплатный llama (альтернатива)
+GROQ_API_KEY = os.getenv('GROQ_API_KEY', '')
+GROQ_MODEL = os.getenv('GROQ_MODEL', 'qwen/qwen3.8-27b')
+GROQ_BASE_URL = os.getenv('GROQ_BASE_URL', 'https://api.groq.com/openai/v1')
+
+# Порядок провайдеров — можно менять в .env: AI_PROVIDER_ORDER=opencode,gemini,groq,fallback
+AI_PROVIDER_ORDER = [p.strip() for p in os.getenv('AI_PROVIDER_ORDER', 'opencode,gemini,groq,fallback').split(',') if p.strip()]
+
 # Логирование — черный ящик: пишет в консоль и файл logs/delivery.log
 import logging  # noqa: E402  # уже после os.getenv
 
@@ -276,3 +297,13 @@ try:
     (BASE_DIR / 'logs').mkdir(exist_ok=True)
 except Exception:
     pass
+
+# Кэш для AI — 1 час, LocMem (для продакшена замени на Redis)
+CACHES = {
+    'default': {
+        'BACKEND': 'django.core.cache.backends.locmem.LocMemCache',
+        'LOCATION': 'ai-cache',
+        'TIMEOUT': 3600,  # 1 час
+    }
+}
+AI_CACHE_TIMEOUT = 3600

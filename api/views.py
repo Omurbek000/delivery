@@ -9,6 +9,7 @@ from .filters import DishFilter, OrderFilter
 from .models import ALLOWED_TRANSITIONS, STATUS_CHOICES, Category, Dish, Favorite, Order, Promo
 from .permissions import IsAdminOrReadOnly, IsOwnerOrAdmin
 from .serializers import (
+    AiRecommendSerializer,
     CategorySerializer,
     ChangePasswordSerializer,
     ChangePhoneSerializer,
@@ -322,3 +323,35 @@ class OrderStatusView(generics.UpdateAPIView):
         order.status = new_status
         order.save(update_fields=['status'])
         return Response(OrderSerializer(order).data, status=status.HTTP_200_OK)
+
+
+# AI — рекомендации блюд
+
+class AiRecommendView(generics.GenericAPIView):
+    """AI-помощник: подбор блюд по запросу (Gemini Flash + fallback)."""
+
+    serializer_class = AiRecommendSerializer
+    permission_classes = (AllowAny,)
+    throttle_scope = 'ai'
+
+    def post(self, request):
+        """Принимает query, возвращает answer + dishes."""
+        serializer = self.get_serializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        query = serializer.validated_data['query']
+        # Импорт тут чтобы избежать циклов
+        from api.services.ai import recommend
+
+        result = recommend(query)
+        # Сериализуем dishes через DishSerializer для консистентности
+        # result['dishes'] уже список dict, но лучше отдать как есть + dish_ids
+        return Response(
+            {
+                'query': query,
+                'answer': result['answer'],
+                'dish_ids': result['dish_ids'],
+                'dishes': result['dishes'],
+                'source': result.get('source', 'fallback'),
+            },
+            status=status.HTTP_200_OK,
+        )

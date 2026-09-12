@@ -14,24 +14,24 @@ class Command(BaseCommand):
         """Создаёт категории и блюда, если их ещё нет."""
         categories = {
             'Суши': [
-                {'name': 'Филадельфия', 'description': 'Лосось, сливочный сыр, авокадо', 'price': '490.00'},
-                {'name': 'Калифорния', 'description': 'Краб, авокадо, икра тобико', 'price': '450.00'},
-                {'name': 'Спайси тунец', 'description': 'Тунец, острый соус, рис', 'price': '520.00'},
+                {'name': 'Филадельфия', 'description': 'Лосось, сливочный сыр, авокадо', 'price': '490.00', 'ingredients': 'лосось, сливочный сыр, авокадо, рис, нори'},
+                {'name': 'Калифорния', 'description': 'Краб, авокадо, икра тобико', 'price': '450.00', 'ingredients': 'краб, авокадо, огурец, икра тобико, рис, нори'},
+                {'name': 'Спайси тунец', 'description': 'Тунец, острый соус, рис', 'price': '520.00', 'ingredients': 'тунец, спайси соус, огурец, рис, нори, чили'},
             ],
             'Роллы': [
-                {'name': 'Ролл с лососем', 'description': 'Лосось, огурец, рис', 'price': '380.00'},
-                {'name': 'Ролл с угрём', 'description': 'Угорь, огурец, соус унаги', 'price': '420.00'},
-                {'name': 'Хот-ролл', 'description': 'Запечённый ролл с лососем и сыром', 'price': '550.00'},
+                {'name': 'Ролл с лососем', 'description': 'Лосось, огурец, рис', 'price': '380.00', 'ingredients': 'лосось, огурец, рис, нори'},
+                {'name': 'Ролл с угрём', 'description': 'Угорь, огурец, соус унаги', 'price': '420.00', 'ingredients': 'угорь, огурец, соус унаги, рис, нори'},
+                {'name': 'Хот-ролл', 'description': 'Запечённый ролл с лососем и сыром', 'price': '550.00', 'ingredients': 'лосось, сливочный сыр, рис, нори, сыр, запеченный'},
             ],
             'Напитки': [
-                {'name': 'Зелёный чай', 'description': 'Горячий зелёный чай', 'price': '120.00'},
-                {'name': 'Кола', 'description': 'Кола 0.33 л', 'price': '150.00'},
-                {'name': 'Сок манго', 'description': 'Манговый нектар 0.33 л', 'price': '180.00'},
+                {'name': 'Зелёный чай', 'description': 'Горячий зелёный чай', 'price': '120.00', 'ingredients': 'зеленый чай'},
+                {'name': 'Кола', 'description': 'Кола 0.33 л', 'price': '150.00', 'ingredients': 'кола'},
+                {'name': 'Сок манго', 'description': 'Манговый нектар 0.33 л', 'price': '180.00', 'ingredients': 'манго, сок'},
             ],
             'Добавки': [
-                {'name': 'Имбирь', 'description': 'Маринованный имбирь', 'price': '90.00'},
-                {'name': 'Васаби', 'description': 'Острый васаби', 'price': '80.00'},
-                {'name': 'Соевый соус', 'description': 'Соевый соус', 'price': '70.00'},
+                {'name': 'Имбирь', 'description': 'Маринованный имбирь', 'price': '90.00', 'ingredients': 'имбирь'},
+                {'name': 'Васаби', 'description': 'Острый васаби', 'price': '80.00', 'ingredients': 'васаби'},
+                {'name': 'Соевый соус', 'description': 'Соевый соус', 'price': '70.00', 'ingredients': 'соевый соус'},
             ],
         }
 
@@ -43,10 +43,14 @@ class Command(BaseCommand):
                     name=dish_data['name'],
                     defaults={
                         'description': dish_data['description'],
+                        'ingredients': dish_data.get('ingredients', ''),
                         'price': dish_data['price'],
                         'category': category,
                     },
                 )
+                # Обновляем ingredients у существующих блюд (для AI)
+                if not was_created:
+                    Dish.objects.filter(name=dish_data['name']).update(ingredients=dish_data.get('ingredients', ''))
                 if was_created:
                     created += 1
 

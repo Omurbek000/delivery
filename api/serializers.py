@@ -152,7 +152,7 @@ class DishSerializer(serializers.ModelSerializer):
     class Meta:
         model = Dish
         fields = (
-            'id', 'name', 'description', 'price', 'image', 'is_available',
+            'id', 'name', 'description', 'ingredients', 'price', 'image', 'is_available',
             'category', 'category_id',
         )
 
@@ -320,3 +320,12 @@ class OrderCreateSerializer(serializers.ModelSerializer):
     def to_representation(self, instance):
         """Возвращает заказ полностью — со статусом, суммой и позициями."""
         return OrderSerializer(instance).data
+
+
+# AI — рекомендации
+
+class AiRecommendSerializer(serializers.Serializer):
+    """Сериализатор запроса к AI-помощнику."""
+
+    query = serializers.CharField(required=True, allow_blank=False)
+    history = serializers.ListField(child=serializers.DictField(), required=False, default=list)

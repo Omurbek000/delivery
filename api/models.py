@@ -63,6 +63,7 @@ class Dish(models.Model):
 
     name = models.CharField('Название', max_length=100)
     description = models.TextField('Описание', blank=True)
+    ingredients = models.TextField('Состав', blank=True, help_text='Через запятую: лосось, сыр, рис')
     price = models.DecimalField(
         'Цена', max_digits=10, decimal_places=2, validators=[MinValueValidator(0)],
     )

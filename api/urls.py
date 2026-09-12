@@ -39,4 +39,7 @@ urlpatterns = [
     path('orders/<int:pk>/', views.OrderDetailView.as_view(), name='order-detail'),
     path('orders/<int:pk>/cancel/', views.OrderCancelView.as_view(), name='order-cancel'),
     path('orders/<int:pk>/status/', views.OrderStatusView.as_view(), name='order-status'),
+
+    # AI
+    path('ai/recommend/', views.AiRecommendView.as_view(), name='ai-recommend'),
 ]

@@ -28,7 +28,7 @@ class DishAdmin(admin.ModelAdmin):
 
     list_display = ('name', 'price', 'category', 'is_available')
     list_filter = ('category', 'is_available')
-    search_fields = ('name',)
+    search_fields = ('name', 'description', 'ingredients')
 
 
 @admin.register(Favorite)
