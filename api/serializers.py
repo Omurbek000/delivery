@@ -329,3 +329,4 @@ class AiRecommendSerializer(serializers.Serializer):
 
     query = serializers.CharField(required=True, allow_blank=False)
     history = serializers.ListField(child=serializers.DictField(), required=False, default=list)
+
