@@ -74,6 +74,7 @@ INSTALLED_APPS = [
 MIDDLEWARE = [
     'corsheaders.middleware.CorsMiddleware',
     'django.middleware.security.SecurityMiddleware',
+    'whitenoise.middleware.WhiteNoiseMiddleware',  # отдает собранную статику сам, без nginx
     'django.contrib.sessions.middleware.SessionMiddleware',
     'django.middleware.common.CommonMiddleware',
     'django.middleware.csrf.CsrfViewMiddleware',
@@ -169,6 +170,7 @@ USE_TZ = True
 # https://docs.djangoproject.com/en/5.1/howto/static-files/
 
 STATIC_URL = 'static/'
+STATIC_ROOT = BASE_DIR / 'staticfiles'  # куда collectstatic собирает файлы (нужно для продакшена)
 
 # Default primary key field type
 # https://docs.djangoproject.com/en/5.1/ref/settings/#default-auto-field
@@ -319,12 +321,26 @@ try:
 except Exception:
     pass
 
-# Кэш для AI — 1 час, LocMem (для продакшена замени на Redis)
-CACHES = {
-    'default': {
-        'BACKEND': 'django.core.cache.backends.locmem.LocMemCache',
-        'LOCATION': 'ai-cache',
-        'TIMEOUT': 3600,  # 1 час
+# Кэш (throttling DRF + ответы AI на 1 час).
+# Если в .env задан REDIS_URL — общий Redis (важно при нескольких воркерах gunicorn),
+# иначе локальный LocMem (для разработки без docker).
+
+_redis_url = os.getenv('REDIS_URL', '')
+
+if _redis_url:
+    CACHES = {
+        'default': {
+            'BACKEND': 'django.core.cache.backends.redis.RedisCache',
+            'LOCATION': _redis_url,
+            'TIMEOUT': 3600,  # 1 час
+        }
     }
-}
+else:
+    CACHES = {
+        'default': {
+            'BACKEND': 'django.core.cache.backends.locmem.LocMemCache',
+            'LOCATION': 'ai-cache',
+            'TIMEOUT': 3600,  # 1 час
+        }
+    }
 AI_CACHE_TIMEOUT = 3600

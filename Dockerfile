@@ -17,8 +17,8 @@ COPY --from=builder /wheels /wheels
 RUN pip install --no-cache-dir --no-index --find-links=/wheels /wheels/* && rm -rf /wheels
 # Копируем код
 COPY --chown=appuser:appuser . .
-# Собираем статику (если есть)
-RUN python manage.py collectstatic --noinput || true
+# Собираем статику для Whitenoise (SECRET_KEY подставлен только для этой команды)
+RUN python manage.py collectstatic --noinput
 USER appuser
 EXPOSE 8000
 # Gunicorn: 3 воркера, таймаут 30с
