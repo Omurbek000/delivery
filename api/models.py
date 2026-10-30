@@ -231,7 +231,7 @@ class OrderItem(models.Model):
         verbose_name='Заказ',
     )
     dish = models.ForeignKey(
-        Dish, on_delete=models.CASCADE, related_name='dish_order_item',
+        Dish, on_delete=models.PROTECT, related_name='dish_order_item',
         verbose_name='Блюдо',
     )
     quantity = models.PositiveIntegerField('Количество', default=1)

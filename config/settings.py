@@ -29,13 +29,15 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 # В проде SECRET_KEY обязан быть в .env, иначе падаем. В dev подставится dev-ключ.
 SECRET_KEY = os.getenv('SECRET_KEY')
 if not SECRET_KEY:
-    if os.getenv('DEBUG', 'True') == 'True':
+    if os.getenv('DEBUG', 'False') == 'True':
         SECRET_KEY = 'django-insecure-erui)zw$8cd$a60o!((4*!og_2y)!p$8kjrx+r4e5(2(e5#8kf'  # только для локальной разработки
     else:
         raise ValueError('SECRET_KEY не задан в .env — укажи свой ключ для продакшена')
 
 # SECURITY WARNING: don't run with debug turned on in production!
-DEBUG = os.getenv('DEBUG', 'True') == 'True'
+# По умолчанию False: если на сервере забыли задать DEBUG — безопаснее, чем True.
+# Для локальной разработки укажи DEBUG=True в .env.
+DEBUG = os.getenv('DEBUG', 'False') == 'True'
 
 ALLOWED_HOSTS = os.getenv('ALLOWED_HOSTS', '127.0.0.1,localhost').split(',')
 # Убираем пустые значения (если ALLOWED_HOSTS="" )
@@ -104,13 +106,32 @@ WSGI_APPLICATION = 'config.wsgi.application'
 
 # Database
 # https://docs.djangoproject.com/en/5.1/ref/settings/#databases
+# База задается строкой DATABASE_URL из .env (postgres://user:pass@host:port/name).
+# Если DATABASE_URL нет — работаем на sqlite3 (локальная разработка без настроек).
 
-DATABASES = {
-    'default': {
-        'ENGINE': 'django.db.backends.sqlite3',
-        'NAME': BASE_DIR / 'db.sqlite3',
+from urllib.parse import unquote, urlparse
+
+_database_url = os.getenv('DATABASE_URL', '')
+
+if _database_url.startswith(('postgres://', 'postgresql://')):
+    _u = urlparse(_database_url)
+    DATABASES = {
+        'default': {
+            'ENGINE': 'django.db.backends.postgresql',
+            'NAME': unquote(_u.path.lstrip('/')),
+            'USER': unquote(_u.username or ''),
+            'PASSWORD': unquote(_u.password or ''),
+            'HOST': _u.hostname or 'localhost',
+            'PORT': str(_u.port or 5432),
+        }
     }
-}
+else:
+    DATABASES = {
+        'default': {
+            'ENGINE': 'django.db.backends.sqlite3',
+            'NAME': BASE_DIR / 'db.sqlite3',
+        }
+    }
 
 
 # Password validation
