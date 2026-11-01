@@ -24,9 +24,9 @@ schema_view = get_schema_view(
 # Основные маршруты проекта
 urlpatterns = [
     path('admin/', admin.site.urls),  # админка: /admin/
-    path('', include('api.urls')),  # старые пути без версии (для обратной совместимости)
-    path('api/v1/', include('api.urls')),  # версионированные пути — рекомендуются для новых клиентов
+    path('', include('api.urls')),  # все 23 эндпоинта API (ключ /api/v1/ вернём при появлении v2)
     path('docs/', schema_view.with_ui('swagger', cache_timeout=0), name='schema-swagger-ui'),  # Swagger: /docs/
+    path('redoc/', schema_view.with_ui('redoc', cache_timeout=0), name='schema-redoc'),  # ReDoc: /redoc/
     path('accounts/', include('allauth.urls')),  # маршруты allauth (вход через соцсети)
 ] + static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)
 # static(...) — в режиме разработки отдаёт загруженные медиа-файлы (картинки) по адресу /media/...

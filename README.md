@@ -25,7 +25,7 @@
 <br>
 ![JWT blacklist](https://img.shields.io/badge/JWT-blacklist-000000?style=flat-square&logo=jsonwebtokens&logoColor=white)
 ![Swagger](https://img.shields.io/badge/Swagger-/docs-85EA2D?style=flat-square&logo=swagger&logoColor=black)
-![tests](https://img.shields.io/badge/tests-26_passing-10B981?style=flat-square)
+![tests](https://img.shields.io/badge/tests-29_passing-10B981?style=flat-square)
 ![endpoints](https://img.shields.io/badge/endpoints-23-4F8CFF?style=flat-square)
 ![models](https://img.shields.io/badge/models-8-8B5CF6?style=flat-square)
 ![status](https://img.shields.io/badge/production-ready-10B981?style=flat-square)
@@ -33,8 +33,6 @@
 
 </div>
 
-> [!IMPORTANT]
-> Все секреты живут в `.env` — файл не попадает в git. В репо только `.env.example` с шаблоном.
 
 ---
 
@@ -50,7 +48,7 @@
 | 🚀 | [Быстрый старт](#-быстрый-старт--3-команды) |
 | 📡 | [API — 23 эндпоинта](#-api--23-эндпоинта) |
 | 🔐 | [Роли и права](#-роли-и-права) |
-| 🧪 | [Тесты — 26](#-тесты--26) |
+| 🧪 | [Тесты — 29](#-тесты--29) |
 | 🎬 | [Презентация](#-презентация) |
 | 🛠️ | [Админка](#-админка) |
 | 📝 | [Примечания](#-примечания) |
@@ -128,13 +126,13 @@ delivery/
 │   ├── pagination.py    # StandardPagination 10
 │   ├── permissions.py   # IsAdminOrReadOnly / IsOwnerOrAdmin
 │   ├── admin.py         # 8 моделей в админке
-│   ├── tests.py         # 26 тестов
+│   ├── tests.py         # 29 тестов
 │   ├── services/ai.py   # AI-подбор блюд: opencode → gemini → groq → fallback + кэш
 │   ├── signals.py       # email админу о новом заказе (transaction.on_commit)
 │   └── management/commands/demo_data.py
 ├── config/
 │   ├── settings.py      # ru-ru, Asia/Bishkek, Postgres через DATABASE_URL (или sqlite3), JWT, allauth, whitenoise
-│   └── urls.py          # /admin/ + /docs/ + /api/v1/ + /accounts/
+│   └── urls.py          # /admin/ + /docs/ + /accounts/
 ├── Dockerfile           # multi-stage + collectstatic (Whitenoise)
 ├── docker-compose.yml   # postgres:18 + redis + web (порты наружу только на 127.0.0.1)
 ├── presentation.html    # живой слайд-шоу (открыть в браузере)
@@ -349,7 +347,7 @@ curl "http://127.0.0.1:8000/orders/?status=created" -H "Authorization: Bearer <a
 | | `PATCH` | `/orders/<id>/status/` | `IsAdmin` | Смена статуса |
 | **AI** | `POST` | `/ai/recommend/` | `AllowAny` | Подбор блюд по запросу (LLM + fallback) |
 
-Swagger: `http://127.0.0.1:8000/docs/`, ReDoc тоже доступен. Также полный API продублирован на `/api/v1/…` (версиональные пути).
+Swagger: `http://127.0.0.1:8000/docs/`, ReDoc: `http://127.0.0.1:8000/redoc/` — 23 эндпоинта без дублей.
 
 ---
 
@@ -365,7 +363,7 @@ Swagger: `http://127.0.0.1:8000/docs/`, ReDoc тоже доступен. Так�
 
 ---
 
-## 🧪 Тесты — 26
+## 🧪 Тесты — 29
 
 ```powershell
 .venv\Scripts\python.exe manage.py test api.tests --verbosity=2
@@ -379,6 +377,7 @@ Swagger: `http://127.0.0.1:8000/docs/`, ReDoc тоже доступен. Так�
 | `FavoriteTests` | добавление 201, дубль 400 |
 | `PromoCodeTests` | скидка применена, `min_order_amount`, просрочка промокода |
 | `PromoTests` | активные акции на главной, скрытие неактивных, `new_price` по `discount_percent` |
+| `AiRecommendTests` | пустой запрос 400, fallback без API-ключей 200 + `source: fallback`, фильтр «без сыра» исключает сырные блюда |
 | `EmailTests` | письмо админу о новом заказе (`on_commit`), без SMTP не отправляется |
 
 Запуск одного класса:

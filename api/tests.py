@@ -311,3 +311,46 @@ class PromoTests(ApiTestCase):
         self.assertEqual(promo['old_price'], '450.00')
         self.assertEqual(promo['new_price'], Decimal('382.50'))
         self.assertEqual(promo['dish']['name'], 'Филадельфия')
+
+
+class AiRecommendTests(ApiTestCase):
+    """Тесты AI-подбора блюд (/ai/recommend/)."""
+
+    AI_OFF = {
+        'OPENCODE_API_KEY': '',
+        'GEMINI_API_KEY': '',
+        'GROQ_API_KEY': '',
+    }
+
+    def make_dish(self, name, ingredients='', **kwargs):
+        """Создаёт блюдо и возвращает его."""
+        defaults = {'description': 'Вкусно', 'price': '100.00', 'category': self.category}
+        defaults.update(kwargs)
+        return Dish.objects.create(name=name, ingredients=ingredients, **defaults)
+
+    def test_recommend_empty_query_fails(self):
+        """Пустой запрос отклоняется валидацией."""
+        response = self.client.post('/ai/recommend/', {'query': ''}, format='json')
+        self.assertEqual(response.status_code, 400)
+
+    @override_settings(**AI_OFF)
+    def test_recommend_fallback_without_keys(self):
+        """Без API-ключей эндпоинт не падает — работает rule-based fallback."""
+        response = self.client.post(
+            '/ai/recommend/', {'query': 'какие самые вкусные'}, format='json',
+        )
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.data['source'], 'fallback')
+        self.assertTrue(response.data['dishes'])
+        self.assertIn(response.data['dishes'][0]['id'], {d.pk for d in Dish.objects.all()})
+
+    @override_settings(**AI_OFF)
+    def test_recommend_no_cheese_filter(self):
+        """Запрос «без сыра» не предлагает блюда с сыром в составе."""
+        cheese_dish = self.make_dish('Чиз-ролл', ingredients='рис, сыр, лосось')
+        plain_dish = self.make_dish('Огуречный', ingredients='рис, огурец')
+        response = self.client.post('/ai/recommend/', {'query': 'найди что-то без сыра'}, format='json')
+        self.assertEqual(response.status_code, 200)
+        ids = response.data['dish_ids']
+        self.assertIn(plain_dish.pk, ids)
+        self.assertNotIn(cheese_dish.pk, ids)
