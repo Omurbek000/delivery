@@ -4,6 +4,8 @@ from collections import Counter
 from datetime import date
 from decimal import Decimal
 
+from django.contrib.auth import password_validation
+from django.core.exceptions import ValidationError as DjangoValidationError
 from django.db import transaction
 from phonenumber_field.serializerfields import PhoneNumberField
 from rest_framework import serializers
@@ -19,15 +21,20 @@ class UserSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = User
-        fields = ('id', 'phone', 'first_name', 'last_name', 'photo')
+        fields = ('id', 'phone', 'first_name', 'last_name', 'photo', 'is_staff')
 
 
 class ProfileSerializer(serializers.ModelSerializer):
-    """Сериализатор профиля: просмотр и редактирование своих данных."""
+    """Сериализатор профиля: просмотр и редактирование своих данных.
+
+    Телефон менять нельзя (read_only) — только через отдельный эндпоинт
+    /profile/phone/, где есть проверка на занятость номера.
+    """
 
     class Meta:
         model = User
         fields = ('id', 'phone', 'first_name', 'last_name', 'photo')
+        extra_kwargs = {'phone': {'read_only': True}}
 
 
 class ChangePasswordSerializer(serializers.Serializer):
@@ -37,9 +44,15 @@ class ChangePasswordSerializer(serializers.Serializer):
     new_password = serializers.CharField(write_only=True)
 
     def validate_new_password(self, value):
-        """Проверяет, что новый пароль не слишком короткий."""
-        if len(value) < 8:
-            raise serializers.ValidationError('Пароль должен быть не короче 8 символов')
+        """Проверяет новый пароль валидаторами Django (длина, частые пароли).
+
+        Валидаторы из settings.AUTH_PASSWORD_VALIDATORS + проверка на
+        похожесть с данными текущего пользователя.
+        """
+        try:
+            password_validation.validate_password(value, user=self.context['request'].user)
+        except DjangoValidationError as e:
+            raise serializers.ValidationError('; '.join(e.messages))
         return value
 
     def validate(self, attrs):
@@ -73,9 +86,11 @@ class RegisterSerializer(serializers.ModelSerializer):
         fields = ('id', 'phone', 'first_name', 'last_name', 'password')
 
     def validate_password(self, value):
-        """Проверяет, что пароль не слишком короткий."""
-        if len(value) < 8:
-            raise serializers.ValidationError('Пароль должен быть не короче 8 символов')
+        """Проверяет пароль валидаторами Django (длина, частые пароли)."""
+        try:
+            password_validation.validate_password(value)
+        except DjangoValidationError as e:
+            raise serializers.ValidationError('; '.join(e.messages))
         return value
 
     def create(self, validated_data):
@@ -122,12 +137,20 @@ class LogoutSerializer(serializers.Serializer):
     refresh = serializers.CharField()
 
     def validate_refresh(self, value):
-        """Проверяет refresh токен и помещает его в чёрный список."""
+        """Проверяет refresh токен и помещает его в чёрный список.
+
+        Токен должен быть корректным и принадлежать текущему пользователю —
+        иначе кто-то мог бы разлогинить чужого пользователя.
+        """
         try:
             token = RefreshToken(value)
-            token.blacklist()
         except Exception:
             raise serializers.ValidationError('Неверный или уже использованный токен')
+        # user_id в токене может прийти строкой — сравниваем через str()
+        token_user_id = str(token.payload.get('user_id', ''))
+        if token_user_id != str(self.context['request'].user.pk):
+            raise serializers.ValidationError('Можно выйти только с собственного токена')
+        token.blacklist()
         return value
 
 
@@ -235,7 +258,8 @@ class OrderItemCreateSerializer(serializers.Serializer):
     """Сериализатор позиции при создании заказа."""
 
     dish_id = serializers.IntegerField()
-    quantity = serializers.IntegerField(min_value=1)
+    # Максимум 99 шт одного блюда — защита от переполнения итоговой суммы в БД
+    quantity = serializers.IntegerField(min_value=1, max_value=99)
 
 
 class OrderCreateSerializer(serializers.ModelSerializer):
@@ -322,11 +346,57 @@ class OrderCreateSerializer(serializers.ModelSerializer):
         return OrderSerializer(instance).data
 
 
+# Админ — промокоды, акции, пользователи
+
+class PromoCodeAdminSerializer(serializers.ModelSerializer):
+    """Промокод для админ-панели: полный CRUD."""
+
+    class Meta:
+        model = PromoCode
+        fields = ('id', 'code', 'discount_percent', 'is_active', 'valid_until', 'min_order_amount')
+
+    def validate_code(self, value):
+        """Код не может быть пустым, лишние пробелы убираем."""
+        if not value.strip():
+            raise serializers.ValidationError('Код не может быть пустым')
+        return value.strip()
+
+
+class PromoAdminSerializer(serializers.ModelSerializer):
+    """Акция для админ-панели: полный CRUD с выбором блюда и загрузкой фото."""
+
+    dish_id = serializers.PrimaryKeyRelatedField(
+        queryset=Dish.objects.all(), write_only=True, source='dish',
+    )
+    dish = DishSerializer(read_only=True)
+
+    class Meta:
+        model = Promo
+        fields = (
+            'id', 'title', 'description', 'old_price', 'discount_percent',
+            'dish', 'dish_id', 'image', 'is_active', 'sort_order',
+        )
+
+
+class UserAdminSerializer(serializers.ModelSerializer):
+    """Пользователь для админ-панели: список. Менять можно только is_active."""
+
+    class Meta:
+        model = User
+        fields = ('id', 'phone', 'first_name', 'last_name', 'photo', 'is_active', 'is_staff', 'date_joined')
+        read_only_fields = ('id', 'phone', 'first_name', 'last_name', 'photo', 'is_staff', 'date_joined')
+
+
+class UserBanSerializer(serializers.Serializer):
+    """Тумблер блокировки пользователя."""
+
+    is_active = serializers.BooleanField()
+
+
 # AI — рекомендации
 
 class AiRecommendSerializer(serializers.Serializer):
     """Сериализатор запроса к AI-помощнику."""
 
-    query = serializers.CharField(required=True, allow_blank=False)
-    history = serializers.ListField(child=serializers.DictField(), required=False, default=list)
+    query = serializers.CharField(required=True, allow_blank=False, max_length=500)
 

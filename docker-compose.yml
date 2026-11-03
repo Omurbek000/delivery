@@ -4,13 +4,15 @@ services:
     environment:
       POSTGRES_DB: delivery
       POSTGRES_USER: admin
-      POSTGRES_PASSWORD: admin
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-admin}
     ports:
-      - "127.0.0.1:5432:5432"
+      # 5432/5433 заняты локальным Postgres/wslrelay — наружу выставляем 5434
+      - "127.0.0.1:5434:5432"
     volumes:
-      - pgdata:/var/lib/postgresql/data
+      # postgres:18 хранит данные в /var/lib/postgresql/18/docker — volume монтируем выше
+      - pgdata:/var/lib/postgresql
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U delivery"]
+      test: ["CMD-SHELL", "pg_isready -U admin -d delivery"]
       interval: 5s
       timeout: 5s
       retries: 5
@@ -18,7 +20,8 @@ services:
   redis:
     image: redis:7-alpine
     ports:
-      - "127.0.0.1:6379:6379"
+      # 6379 занят локальным redis (wslrelay) — наружу выставляем 6380
+      - "127.0.0.1:6380:6379"
     volumes:
       - redisdata:/data
 
@@ -37,7 +40,7 @@ services:
     env_file:
       - .env
     environment:
-      DATABASE_URL: postgres://admin:admin@db:5432/delivery
+      DATABASE_URL: postgres://admin:${POSTGRES_PASSWORD:-admin}@db:5432/delivery
       REDIS_URL: redis://redis:6379/0
     depends_on:
       db:

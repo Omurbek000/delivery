@@ -42,4 +42,20 @@ urlpatterns = [
 
     # AI
     path('ai/recommend/', views.AiRecommendView.as_view(), name='ai-recommend'),
+
+    # Админ — промокоды
+    path('promo-codes/', views.PromoCodeAdminListView.as_view(), name='promo-codes-list'),
+    path('promo-codes/create/', views.PromoCodeAdminCreateView.as_view(), name='promo-codes-create'),
+    path('promo-codes/<int:pk>/edit/', views.PromoCodeAdminEditView.as_view(), name='promo-codes-edit'),
+
+    # Админ — акции
+    path('promos/', views.PromoAdminListView.as_view(), name='promos-admin-list'),
+    path('promos/create/', views.PromoAdminCreateView.as_view(), name='promos-admin-create'),
+    path('promos/<int:pk>/edit/', views.PromoAdminEditView.as_view(), name='promos-admin-edit'),
+
+    # Админ — категории (edit/delete), пользователи, статистика
+    path('categories/<int:pk>/edit/', views.CategoryEditView.as_view(), name='category-edit'),
+    path('users/', views.UserAdminListView.as_view(), name='users-admin-list'),
+    path('users/<int:pk>/ban/', views.UserAdminBanView.as_view(), name='users-admin-ban'),
+    path('stats/', views.StatsDashboardView.as_view(), name='stats'),
 ]

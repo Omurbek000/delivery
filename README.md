@@ -25,8 +25,8 @@
 <br>
 ![JWT blacklist](https://img.shields.io/badge/JWT-blacklist-000000?style=flat-square&logo=jsonwebtokens&logoColor=white)
 ![Swagger](https://img.shields.io/badge/Swagger-/docs-85EA2D?style=flat-square&logo=swagger&logoColor=black)
-![tests](https://img.shields.io/badge/tests-29_passing-10B981?style=flat-square)
-![endpoints](https://img.shields.io/badge/endpoints-23-4F8CFF?style=flat-square)
+![tests](https://img.shields.io/badge/tests-44_passing-10B981?style=flat-square)
+![endpoints](https://img.shields.io/badge/endpoints-33-4F8CFF?style=flat-square)
 ![models](https://img.shields.io/badge/models-8-8B5CF6?style=flat-square)
 ![status](https://img.shields.io/badge/production-ready-10B981?style=flat-square)
 ![license](https://img.shields.io/badge/license-MIT-F6D51F?style=flat-square)
@@ -46,11 +46,12 @@
 | 📦 | [Данные и модели](#-данные-и-модели) |
 | 🐳 | [Docker](#-docker) |
 | 🚀 | [Быстрый старт](#-быстрый-старт--3-команды) |
-| 📡 | [API — 23 эндпоинта](#-api--23-эндпоинта) |
+| 📡 | [API — 33 эндпоинта](#-api--33-эндпоинта) |
 | 🔐 | [Роли и права](#-роли-и-права) |
-| 🧪 | [Тесты — 29](#-тесты--29) |
+| 🧪 | [Тесты — 44](#-тесты--44) |
 | 🎬 | [Презентация](#-презентация) |
 | 🛠️ | [Админка](#-админка) |
+| 🖥️ | [Админ-панель](#%EF%B8%8F-админ-панель-react) |
 | 📝 | [Примечания](#-примечания) |
 
 ---
@@ -121,18 +122,19 @@ delivery/
 │   ├── models.py        # User, Category, Dish, Favorite, PromoCode, Promo, Order, OrderItem + STATUS_CHOICES
 │   ├── serializers.py   # вложенные read + PrimaryKeyRelated write, SerializerMethodField
 │   ├── views.py         # Register/Login/Logout, Profile, Category/Dish, Favorite, Promo, Order, AI
-│   ├── urls.py          # 23 path() без DefaultRouter
+│   ├── urls.py          # 33 path() без DefaultRouter (+ схема без дублей)
 │   ├── filters.py       # DishFilter / OrderFilter
 │   ├── pagination.py    # StandardPagination 10
 │   ├── permissions.py   # IsAdminOrReadOnly / IsOwnerOrAdmin
 │   ├── admin.py         # 8 моделей в админке
-│   ├── tests.py         # 29 тестов
+│   ├── tests.py         # 44 теста
 │   ├── services/ai.py   # AI-подбор блюд: opencode → gemini → groq → fallback + кэш
 │   ├── signals.py       # email админу о новом заказе (transaction.on_commit)
 │   └── management/commands/demo_data.py
+├── admin/               # админ-панель: React + Vite + TanStack Query (дев: npm run dev, прод: /panel/)
 ├── config/
 │   ├── settings.py      # ru-ru, Asia/Bishkek, Postgres через DATABASE_URL (или sqlite3), JWT, allauth, whitenoise
-│   └── urls.py          # /admin/ + /docs/ + /accounts/
+│   └── urls.py          # /admin/ + /panel/ + /docs/ + /accounts/
 ├── Dockerfile           # multi-stage + collectstatic (Whitenoise)
 ├── docker-compose.yml   # postgres:18 + redis + web (порты наружу только на 127.0.0.1)
 ├── presentation.html    # живой слайд-шоу (открыть в браузере)
@@ -319,7 +321,7 @@ curl "http://127.0.0.1:8000/orders/?status=created" -H "Authorization: Bearer <a
 
 ---
 
-## 📡 API — 23 эндпоинта
+## 📡 API — 33 эндпоинта
 
 | Группа | Метод | Путь | Доступ | Описание |
 |---|---|---|---|---|
@@ -346,8 +348,16 @@ curl "http://127.0.0.1:8000/orders/?status=created" -H "Authorization: Bearer <a
 | | `PATCH` | `/orders/<id>/cancel/` | `IsOwnerOrAdmin` | Отмена только `created` |
 | | `PATCH` | `/orders/<id>/status/` | `IsAdmin` | Смена статуса |
 | **AI** | `POST` | `/ai/recommend/` | `AllowAny` | Подбор блюд по запросу (LLM + fallback) |
+| **Админ-промокоды** | `GET/POST` | `/promo-codes/`, `/promo-codes/create/` | `IsAdmin` | Список / создание |
+| | `PATCH/DELETE` | `/promo-codes/<id>/edit/` | `IsAdmin` | Изменить / удалить |
+| **Админ-акции** | `GET/POST` | `/promos/`, `/promos/create/` | `IsAdmin` | Все акции, включая отключённые |
+| | `PATCH/DELETE` | `/promos/<id>/edit/` | `IsAdmin` | Изменить (и фото) / удалить |
+| **Админ-категории** | `PATCH/DELETE` | `/categories/<id>/edit/` | `IsAdmin` | Переименовать; удаление нельзя, если есть блюда |
+| **Админ-юзеры** | `GET` | `/users/` | `IsAdmin` | Список пользователей |
+| | `PATCH` | `/users/<id>/ban/` | `IsAdmin` | Бан/разбан (`is_active`), себя — нельзя |
+| **Дэшборд** | `GET` | `/stats/` | `IsAdmin` | Заказы/выручка за сегодня, статусы, топ-5 блюд |
 
-Swagger: `http://127.0.0.1:8000/docs/`, ReDoc: `http://127.0.0.1:8000/redoc/` — 23 эндпоинта без дублей.
+Swagger: `http://127.0.0.1:8000/docs/`, ReDoc: `http://127.0.0.1:8000/redoc/` — 33 эндпоинта без дублей.
 
 ---
 
@@ -363,7 +373,7 @@ Swagger: `http://127.0.0.1:8000/docs/`, ReDoc: `http://127.0.0.1:8000/redoc/` �
 
 ---
 
-## 🧪 Тесты — 29
+## 🧪 Тесты — 44
 
 ```powershell
 .venv\Scripts\python.exe manage.py test api.tests --verbosity=2
@@ -378,6 +388,7 @@ Swagger: `http://127.0.0.1:8000/docs/`, ReDoc: `http://127.0.0.1:8000/redoc/` �
 | `PromoCodeTests` | скидка применена, `min_order_amount`, просрочка промокода |
 | `PromoTests` | активные акции на главной, скрытие неактивных, `new_price` по `discount_percent` |
 | `AiRecommendTests` | пустой запрос 400, fallback без API-ключей 200 + `source: fallback`, фильтр «без сыра» исключает сырные блюда |
+| `AdminApiTests` | промокоды/акции CRUD, защита категорий, бан юзера (себя нельзя), дэшборд по числам, 401/403 для гостей и клиентов |
 | `EmailTests` | письмо админу о новом заказе (`on_commit`), без SMTP не отправляется |
 
 Запуск одного класса:
@@ -401,6 +412,45 @@ Swagger: `http://127.0.0.1:8000/docs/`, ReDoc: `http://127.0.0.1:8000/redoc/` �
 `http://127.0.0.1:8000/admin/` — 8 моделей: `User` (phone), `Category`, `Dish`, `Favorite`, `Order`, `OrderItem`, `PromoCode`, `Promo`.
 
 Полезно: у `Dish` фильтры по `category`/`is_available`, у `Order` — по `status`.
+
+---
+
+## 🖥️ Админ-панель (React)
+
+Своя полноценная панель в папке `admin/` — Vite + React + TypeScript + TanStack Query + React Router.
+
+**Прод-режим без Node на сервере** — сборка раздаёт Django по `/panel/`:
+
+```powershell
+cd admin
+npm install
+npm run build        # соберёт панель в admin/dist
+docker compose up -d --build web   # пересборка образа вместе с панелью
+# ▶ http://127.0.0.1:8000/panel/
+```
+
+**Дев-режим** (быстрая, hot-reload):
+
+```powershell
+cd admin
+npm run dev   # http://localhost:5173, API ходит на localhost:8000 через CORS
+```
+
+| Раздел | Что делает |
+|---|---|
+| `/orders` | Таблица всех заказов + кнопки смены статуса по матрице переходов |
+| `/menu` | Блюда: CRUD с фото и составом; категории: создавать/переименовывать/удалять (с блюдами — нельзя) |
+| `/promos` | Акции (с фото) и промокоды: создание, вкл/выкл, удаление |
+| `/users` | Список пользователей + бан/разбан (себя забанить нельзя) |
+| `/stats` | Заказы и выручка за сегодня, счётчик статусов, топ-5 блюд |
+
+Вход — только для `is_staff`; обычный клиент получит отказ. Логин по номеру телефона и паролю.
+
+E2E-тесты панели (Playwright, нужен поднятый бэкенд на 8000):
+```powershell
+cd admin
+npx playwright test   # 3 теста: полный проход + отдача Django /panel/ + вход через /panel/
+```
 
 ---
 

@@ -1269,7 +1269,10 @@ const API = 'http://127.0.0.1:8000';
                 body: JSON.stringify({ refresh }),
             });
             if (res.ok) {
-                localStorage.setItem('access', (await res.json()).access);
+                const data = await res.json();
+                localStorage.setItem('access', data.access);
+                // при ротации сервер возвращает и новый refresh — сохраняем его
+                if (data.refresh) localStorage.setItem('refresh', data.refresh);
                 return true;
             }
             localStorage.removeItem('access');

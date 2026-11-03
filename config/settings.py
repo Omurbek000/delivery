@@ -221,8 +221,8 @@ from datetime import timedelta
 SIMPLE_JWT = {
     'ACCESS_TOKEN_LIFETIME': timedelta(minutes=15),
     'REFRESH_TOKEN_LIFETIME': timedelta(days=7),
-    'ROTATE_REFRESH_TOKENS': False,
-    'BLACKLIST_AFTER_ROTATION': True,
+    'ROTATE_REFRESH_TOKENS': True,     # при обновлении access выдаётся новый refresh
+    'BLACKLIST_AFTER_ROTATION': True,  # старый refresh сразу в чёрный список
 }
 
 
@@ -241,21 +241,18 @@ EMAIL_PORT = int(os.getenv('EMAIL_PORT', '465'))
 EMAIL_USE_SSL = os.getenv('EMAIL_USE_SSL', 'True') == 'True'
 EMAIL_HOST_USER = os.getenv('EMAIL_HOST_USER', '')
 EMAIL_HOST_PASSWORD = os.getenv('EMAIL_HOST_PASSWORD', '')
+EMAIL_TIMEOUT = 10  # письмо не должно замораживать ответ на создание заказа
 
 # Кому слать уведомления о новых заказах
 ADMIN_EMAIL = os.getenv('ADMIN_EMAIL', '')
 
 
 # CORS — список разрешенных источников. Через .env можно задать CORS_ALLOWED_ORIGINS.
-# Для локальной разработки (ui-mockup-main.html file://) оставляем True, в проде замени на домены.
+# Правило: если список не задан и DEBUG=False — внешним сайтам доступ закрыт (fail-closed).
+# Разрешить "всем" можно только в локальной разработке (DEBUG=True), чтобы работал ui-mockup.
 _cors_env = os.getenv('CORS_ALLOWED_ORIGINS', '')
-if _cors_env:
-    CORS_ALLOWED_ORIGINS = [o.strip() for o in _cors_env.split(',') if o.strip()]
-    CORS_ALLOW_ALL_ORIGINS = False
-else:
-    # По умолчанию для dev — разрешаем все, чтобы макет работал без настройки
-    CORS_ALLOW_ALL_ORIGINS = True
-    CORS_ALLOWED_ORIGINS = []
+CORS_ALLOWED_ORIGINS = [o.strip() for o in _cors_env.split(',') if o.strip()]
+CORS_ALLOW_ALL_ORIGINS = DEBUG and not CORS_ALLOWED_ORIGINS
 
 # AI — цепочка с автопереключением (бесплатные ключи)
 # Порядок: opencode (muse-spark) → gemini → groq → fallback
@@ -276,6 +273,18 @@ GROQ_BASE_URL = os.getenv('GROQ_BASE_URL', 'https://api.groq.com/openai/v1')
 
 # Порядок провайдеров — можно менять в .env: AI_PROVIDER_ORDER=opencode,gemini,groq,fallback
 AI_PROVIDER_ORDER = [p.strip() for p in os.getenv('AI_PROVIDER_ORDER', 'opencode,gemini,groq,fallback').split(',') if p.strip()]
+
+# ==== Продакшен-настройки безопасности (включаются только при DEBUG=False) ====
+
+if not DEBUG:
+    SECURE_SSL_REDIRECT = True                                    # http → https
+    SECURE_PROXY_SSL_HEADER = ('HTTP_X_FORWARDED_PROTO', 'https')  # если за nginx/прокси
+    SECURE_HSTS_SECONDS = 31536000                                # браузер год помнит https
+    SECURE_HSTS_INCLUDE_SUBDOMAINS = True
+    SECURE_HSTS_PRELOAD = True
+    SESSION_COOKIE_SECURE = True                                  # cookie только по https
+    CSRF_COOKIE_SECURE = True
+    SECURE_REFERRER_POLICY = 'same-origin'
 
 # Логирование — черный ящик: пишет в консоль и файл logs/delivery.log
 import logging  # noqa: E402  # уже после os.getenv

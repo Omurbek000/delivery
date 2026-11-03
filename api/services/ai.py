@@ -181,10 +181,8 @@ def _fallback_recommend(query: str) -> dict:
     }
 
 
-def _call_openai_compatible(query: str, menu: list[dict], base_url: str, api_key: str, model: str, source_name: str) -> dict | None:
-    """Универсальный вызов OpenAI-совместимого API (OpenCode, Groq, OpenAI, OpenRouter)."""
-    if not api_key or not base_url:
-        return None
+def _build_prompt(query: str, menu: list[dict]) -> str:
+    """Собирает общий промпт: правила + меню + запрос пользователя."""
     system = (
         'Ты — помощник ресторана «Онигири». Отвечай только по меню, не выдумывай блюда. '
         'Если просят "без сыра" — исключай блюда где в составе есть сыр, сливочный сыр, филадельфия. '
@@ -192,7 +190,14 @@ def _call_openai_compatible(query: str, menu: list[dict], base_url: str, api_key
         'Верни СТРОГО JSON вида {"answer": "текст", "dish_ids": [1,2]} без markdown.'
     )
     menu_text = json.dumps(menu, ensure_ascii=False)
-    prompt = f'{system}\nМеню: {menu_text}\nЗапрос: {query}\nВерни JSON.'
+    return f'{system}\nМеню: {menu_text}\nЗапрос: {query}\nВерни JSON.'
+
+
+def _call_openai_compatible(query: str, menu: list[dict], base_url: str, api_key: str, model: str, source_name: str) -> dict | None:
+    """Универсальный вызов OpenAI-совместимого API (OpenCode, Groq, OpenAI, OpenRouter)."""
+    if not api_key or not base_url:
+        return None
+    prompt = _build_prompt(query, menu)
 
     url = base_url.rstrip('/') + '/chat/completions'
     headers = {'Authorization': f'Bearer {api_key}', 'Content-Type': 'application/json'}
@@ -230,21 +235,19 @@ def _call_gemini(query: str, menu: list[dict]) -> dict | None:
     if not api_key:
         return None
     model = getattr(settings, 'GEMINI_MODEL', 'gemini-1.5-flash')
-    url = f'https://generativelanguage.googleapis.com/v1beta/models/{model}:generateContent?key={api_key}'
-    system = (
-        'Ты — помощник ресторана «Онигири». Отвечай только по меню, не выдумывай блюда. '
-        'Если просят "без сыра" — исключай блюда где в составе есть сыр, сливочный сыр, филадельфия. '
-        'Если "нас трое" — советуй сет или 2-3 ролла. '
-        'Верни СТРОГО JSON вида {"answer": "текст", "dish_ids": [1,2]} без markdown.'
-    )
-    menu_text = json.dumps(menu, ensure_ascii=False)
-    prompt = f'{system}\nМеню: {menu_text}\nЗапрос: {query}\nВерни JSON.'
+    # Ключ в заголовке, а не в URL — чтобы не светить его в логах и прокси
+    url = f'https://generativelanguage.googleapis.com/v1beta/models/{model}:generateContent'
+    prompt = _build_prompt(query, menu)
     payload = {
         'contents': [{'parts': [{'text': prompt}]}],
         'generationConfig': {'temperature': 0.4, 'maxOutputTokens': 800},
     }
     try:
-        resp = requests.post(url, json=payload, timeout=12)
+        resp = requests.post(
+            url, json=payload,
+            headers={'x-goog-api-key': api_key, 'Content-Type': 'application/json'},
+            timeout=12,
+        )
         resp.raise_for_status()
         data = resp.json()
         text = data['candidates'][0]['content']['parts'][0]['text']
@@ -309,12 +312,12 @@ def recommend(query: str) -> dict:
     if not menu:
         return {'answer': 'Меню пустое.', 'dish_ids': [], 'dishes': [], 'source': 'fallback'}
 
-    # Кэш: хешируем чтобы не было проблем с кириллицей в memcached
+    # Кэш: шифруем ключ sha256, чтобы кириллица не ломала хранилище кэша
     raw_key = query.lower().strip()
-    cache_key = "ai:" + hashlib.md5(raw_key.encode('utf-8')).hexdigest()
+    cache_key = "ai:" + hashlib.sha256(raw_key.encode('utf-8')).hexdigest()
     cached = cache.get(cache_key)
     if cached:
-        logger.info(f"AI cache hit for '{query}'")
+        logger.info(f"AI cache hit for '{query[:60]}'")
         return cached
 
     order = getattr(settings, 'AI_PROVIDER_ORDER', ['opencode', 'gemini', 'groq', 'fallback'])
@@ -341,7 +344,8 @@ def recommend(query: str) -> dict:
             if 'dishes' not in result or not result['dishes']:
                 id_map = {m['id']: m for m in menu}
                 result['dishes'] = [id_map[i] for i in result.get('dish_ids', []) if i in id_map]
-            logger.info(f"AI {provider} success for query '{query}'")
+            # Не логируем полный запрос пользователя — только кусок до 60 символов
+            logger.info(f"AI {provider} success for query '{query[:60]}'")
             break
         logger.info(f"AI {provider} failed, switching to next")
 

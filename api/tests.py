@@ -3,10 +3,11 @@
 from decimal import Decimal
 
 from django.core import mail
+from django.core.cache import cache
 from django.test import TestCase, override_settings
 from rest_framework.test import APIClient
 
-from .models import Category, Dish, Order, Promo, PromoCode, User
+from .models import Category, Dish, Order, OrderItem, Promo, PromoCode, User
 
 
 class ApiTestCase(TestCase):
@@ -15,13 +16,15 @@ class ApiTestCase(TestCase):
     def setUp(self):
         """Готовит клиентов API и пользователей для тестов."""
         self.client = APIClient()
+        # Сбрасываем кэш троттлинга, чтобы тесты не упирались в лимит 5/мин
+        cache.clear()
         self.user = User.objects.create_user(
             username='996555123456', phone='+996555123456',
-            first_name='Али', last_name='Оморов', password='password123',
+            first_name='Али', last_name='Оморов', password='StroNG-Secret2026',
         )
         self.admin = User.objects.create_user(
             username='996555000000', phone='+996555000000',
-            first_name='Админ', last_name='Админов', password='password123',
+            first_name='Админ', last_name='Админов', password='StroNG-Secret2026',
             is_staff=True,
         )
         self.category = Category.objects.create(name='Суши')
@@ -30,13 +33,13 @@ class ApiTestCase(TestCase):
             category=self.category,
         )
 
-    def register(self, phone='+996555777777', password='password123'):
+    def register(self, phone='+996555777777', password='StroNG-Secret2026'):
         """Регистрирует нового пользователя и возвращает ответ."""
         return self.client.post(
             '/register/', {'phone': phone, 'first_name': 'Гость', 'last_name': 'Гостьев', 'password': password},
         )
 
-    def login(self, phone='+996555123456', password='password123'):
+    def login(self, phone='+996555123456', password='StroNG-Secret2026'):
         """Выполняет вход и возвращает ответ с токенами."""
         return self.client.post('/login/', {'phone': phone, 'password': password})
 
@@ -66,6 +69,40 @@ class AuthTests(ApiTestCase):
         """Вход с неверным паролем отклоняется."""
         response = self.login(password='wrongpass')
         self.assertEqual(response.status_code, 400)
+
+    def test_register_common_password_fails(self):
+        """Регистрация с частым паролем (password123) отклоняется валидаторами Django."""
+        response = self.register(password='password123')
+        self.assertEqual(response.status_code, 400)
+        self.assertFalse(User.objects.filter(phone='+996555777777').exists())
+
+    def test_logout_strangers_refresh_token_rejected(self):
+        """Нельзя разлогинить чужого пользователя с его refresh токеном."""
+        login_response = self.login()
+        refresh = login_response.data['refresh']
+        # Другой пользователь пытается выйти с чужим токеном
+        another = User.objects.create_user(
+            username='996555888888', phone='+996555888888',
+            first_name='Бек', last_name='Беков', password='StroNG-Secret2026',
+        )
+        self.client.force_authenticate(user=another)
+        response = self.client.post('/logout/', {'refresh': refresh})
+        self.assertEqual(response.status_code, 400)
+        # Свой токен по-прежнему работает: его можно обновить
+        self.client.force_authenticate(user=self.user)
+        refresh_response = self.client.post('/token/refresh/', {'refresh': refresh})
+        self.assertEqual(refresh_response.status_code, 200)
+
+    def test_logout_own_refresh_token_blacklists(self):
+        """Свой refresh токен при выходе уходит в чёрный список."""
+        login_response = self.login()
+        refresh = login_response.data['refresh']
+        self.client.force_authenticate(user=self.user)
+        response = self.client.post('/logout/', {'refresh': refresh})
+        self.assertEqual(response.status_code, 200)
+        # После выхода токен не работает
+        refresh_response = self.client.post('/token/refresh/', {'refresh': refresh})
+        self.assertEqual(refresh_response.status_code, 401)
 
 
 class MenuTests(ApiTestCase):
@@ -125,6 +162,25 @@ class OrderTests(ApiTestCase):
         }, format='json')
         self.assertEqual(response.status_code, 400)
 
+    def test_create_order_quantity_over_limit_fails(self):
+        """Слишком большое количество одного блюда отклоняется (максимум 99)."""
+        self.client.force_authenticate(user=self.user)
+        response = self.client.post('/orders/create/', {
+            'street': 'Токтогула', 'house': '100',
+            'items': [{'dish_id': self.dish.pk, 'quantity': 100}],
+        }, format='json')
+        self.assertEqual(response.status_code, 400)
+
+    def test_create_order_comment_too_long_fails(self):
+        """Комментарий длиннее 500 символов отклоняется."""
+        self.client.force_authenticate(user=self.user)
+        response = self.client.post('/orders/create/', {
+            'street': 'Токтогула', 'house': '100',
+            'comment': 'х' * 600,
+            'items': [{'dish_id': self.dish.pk, 'quantity': 1}],
+        }, format='json')
+        self.assertEqual(response.status_code, 400)
+
     def test_cancel_order_only_in_created_status(self):
         """Отменить заказ можно только в статусе «Создан»."""
         order = Order.objects.create(user=self.user, status='confirmed')
@@ -139,7 +195,8 @@ class OrderTests(ApiTestCase):
         order = Order.objects.create(user=self.user, status='created')
         self.client.force_authenticate(user=self.user)
         response = self.client.patch(f'/orders/{order.pk}/status/', {'status': 'confirmed'})
-        self.assertEqual(response.status_code, 404)
+        # Явное разрешение IsAdminUser — честный 403 Forbidden без утечек
+        self.assertEqual(response.status_code, 403)
         order.refresh_from_db()
         self.assertEqual(order.status, 'created')
 
@@ -160,7 +217,7 @@ class OrderTests(ApiTestCase):
     def test_orders_list_only_own_for_client(self):
         """Клиент видит только свои заказы."""
         other = User.objects.create_user(
-            username='996555999999', phone='+996555999999', password='password123',
+            username='996555999999', phone='+996555999999', password='StroNG-Secret2026',
         )
         Order.objects.create(user=self.user, status='created')
         Order.objects.create(user=other, status='created')
@@ -168,6 +225,23 @@ class OrderTests(ApiTestCase):
         response = self.client.get('/orders/')
         self.assertEqual(response.status_code, 200)
         self.assertEqual(response.data['count'], 1)
+
+
+class ProfileTests(ApiTestCase):
+    """Тесты профиля и его ограничений."""
+
+    def test_profile_phone_cannot_be_changed(self):
+        """Телефон через /profile/ сменить нельзя (read_only) — защита от дубликатов."""
+        another = User.objects.create_user(
+            username='996555888888', phone='+996555888888',
+            first_name='Бек', last_name='Беков', password='StroNG-Secret2026',
+        )
+        self.client.force_authenticate(user=self.user)
+        response = self.client.patch('/profile/', {'phone': '+996555888888'})
+        self.assertEqual(response.status_code, 200)
+        self.user.refresh_from_db()
+        self.assertEqual(self.user.phone, '+996555123456')
+        self.assertEqual(another.phone, '+996555888888')
 
 
 class FavoriteTests(ApiTestCase):
@@ -354,3 +428,120 @@ class AiRecommendTests(ApiTestCase):
         ids = response.data['dish_ids']
         self.assertIn(plain_dish.pk, ids)
         self.assertNotIn(cheese_dish.pk, ids)
+
+
+class AdminApiTests(ApiTestCase):
+    """Тесты админ-API: промокоды, акции, категории, юзеры, статистика."""
+
+    def admin_client(self):
+        """Переключает клиент на администратора и возвращает его."""
+        self.client.force_authenticate(user=self.admin)
+        return self.client
+
+    def test_promocode_list_create_only_admin(self):
+        """Промокоды видит и создаёт только админ; гость — 401, клиент — 403."""
+        PromoCode.objects.create(code='Скидка10', discount_percent='10.00')
+        self.assertEqual(self.client.get('/promo-codes/').status_code, 401)
+        self.client.force_authenticate(user=self.user)
+        self.assertEqual(self.client.get('/promo-codes/').status_code, 403)
+        client = self.admin_client()
+        self.assertEqual(client.get('/promo-codes/').status_code, 200)
+        create = client.post(
+            '/promo-codes/create/',
+            {'code': 'Лето', 'discount_percent': '15.00', 'min_order_amount': '100.00'},
+            format='json',
+        )
+        self.assertEqual(create.status_code, 201)
+        self.assertTrue(PromoCode.objects.filter(code='Лето', discount_percent=Decimal('15.00')).exists())
+
+    def test_promocode_edit_and_delete(self):
+        """Админ меняет и удаляет промокод."""
+        promo = PromoCode.objects.create(code='Пять', discount_percent='5.00')
+        client = self.admin_client()
+        patch = client.patch(f'/promo-codes/{promo.pk}/edit/', {'is_active': False}, format='json')
+        self.assertEqual(patch.status_code, 200)
+        promo.refresh_from_db()
+        self.assertFalse(promo.is_active)
+        self.assertEqual(client.delete(f'/promo-codes/{promo.pk}/edit/').status_code, 204)
+        self.assertFalse(PromoCode.objects.filter(code='Пять').exists())
+
+    def test_promo_create_with_dish(self):
+        """Админ создаёт акцию с привязкой к блюду."""
+        client = self.admin_client()
+        create = client.post(
+            '/promos/create/',
+            {
+                'title': 'Хит', 'old_price': '490.00', 'discount_percent': '10.00',
+                'dish_id': self.dish.pk, 'sort_order': 9,
+            },
+            format='json',
+        )
+        self.assertEqual(create.status_code, 201)
+        self.assertEqual(create.data['dish']['name'], 'Филадельфия')
+        self.assertTrue(Promo.objects.filter(title='Хит').exists())
+
+    def test_promo_list_all_for_admin(self):
+        """Админ видит все акции, включая отключённые."""
+        Promo.objects.create(
+            title='Отключённая', old_price='150.00', discount_percent='10.00',
+            dish=self.dish, is_active=False,
+        )
+        response = self.admin_client().get('/promos/')
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(len(response.data['results']), 1)
+
+    def test_category_delete_guarded(self):
+        """Категорию с блюдами удалить нельзя, пустую можно."""
+        client = self.admin_client()
+        empty = Category.objects.create(name='Пустая')
+        self.assertEqual(client.delete(f'/categories/{empty.pk}/edit/').status_code, 204)
+        self.assertFalse(Category.objects.filter(name='Пустая').exists())
+        response = client.delete(f'/categories/{self.category.pk}/edit/')
+        self.assertEqual(response.status_code, 400)
+        self.assertTrue(Category.objects.filter(pk=self.category.pk).exists())
+
+    def test_users_list_and_ban(self):
+        """Админ смотрит пользователей и банит; забаненный не может войти."""
+        other = User.objects.create_user(
+            username='996555888888', phone='+996555888888',
+            first_name='Бек', last_name='Беков', password='StroNG-Secret2026',
+        )
+        client = self.admin_client()
+        users = client.get('/users/')
+        self.assertEqual(users.status_code, 200)
+        self.assertEqual(users.data['count'], 3)
+        ban = client.patch(f'/users/{other.pk}/ban/', {'is_active': False}, format='json')
+        self.assertEqual(ban.status_code, 200)
+        other.refresh_from_db()
+        self.assertFalse(other.is_active)
+        self.client.force_authenticate(user=None)
+        login = self.client.post('/login/', {'phone': '+996555888888', 'password': 'StroNG-Secret2026'})
+        self.assertEqual(login.status_code, 400)
+
+    def test_admin_cannot_ban_self(self):
+        """Администратор не может заблокировать самого себя."""
+        client = self.admin_client()
+        response = client.patch(f'/users/{self.admin.pk}/ban/', {'is_active': False}, format='json')
+        self.assertEqual(response.status_code, 400)
+
+    def test_users_api_forbidden_for_client(self):
+        """Обычный (нестафф) пользователь не видит список юзеров и статистику."""
+        self.client.force_authenticate(user=self.user)
+        self.assertEqual(self.client.get('/users/').status_code, 403)
+        self.assertEqual(self.client.get('/stats/').status_code, 403)
+
+    def test_stats_dashboard_numbers(self):
+        """Статистика считает заказы за сегодня, выручку без отменённых и топ блюд."""
+        order = Order.objects.create(user=self.user, status='confirmed', total_price=Decimal('980.00'))
+        OrderItem.objects.create(
+            order=order, dish=self.dish, quantity=2, price_at_order=Decimal('490.00'),
+        )
+        Order.objects.create(user=self.user, status='cancelled', total_price=Decimal('100.00'))
+        data = self.admin_client().get('/stats/').data
+        self.assertEqual(data['today']['orders'], 2)
+        self.assertEqual(Decimal(data['today']['revenue']), Decimal('980.00'))
+        self.assertEqual(data['status_counts']['confirmed'], 1)
+        self.assertEqual(data['status_counts']['cancelled'], 1)
+        self.assertEqual(data['top_dishes'][0]['name'], 'Филадельфия')
+        self.assertEqual(data['top_dishes'][0]['qty'], 2)
+        self.assertEqual(Decimal(data['top_dishes'][0]['revenue']), Decimal('980.00'))

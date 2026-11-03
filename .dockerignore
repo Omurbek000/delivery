@@ -11,6 +11,9 @@ logs
 .idea
 .vscode
 .env
+admin/node_modules
+admin/test-results
+admin/playwright-report
 htmlcov
 .coverage
 .pytest_cache

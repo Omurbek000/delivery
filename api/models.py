@@ -196,7 +196,8 @@ class Order(models.Model):
     discount_amount = models.DecimalField(
         'Сумма скидки', max_digits=10, decimal_places=2, default=0,
     )
-    comment = models.TextField('Комментарий', blank=True)
+    comment = models.TextField('Комментарий', max_length=500, blank=True,
+                              help_text='Не длиннее 500 символов')
 
     class Meta:
         verbose_name = 'Заказ'

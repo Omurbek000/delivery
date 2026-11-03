@@ -1,12 +1,18 @@
 """Views приложения api."""
 
+from decimal import Decimal
+
+from django.contrib.auth import get_user_model
+from django.db.models import Count, DecimalField, F, Sum
+from django.utils import timezone
 from django_filters.rest_framework import DjangoFilterBackend
 from rest_framework import generics, status
-from rest_framework.permissions import AllowAny, IsAuthenticated
+from rest_framework.permissions import AllowAny, IsAdminUser, IsAuthenticated
 from rest_framework.response import Response
+from rest_framework.views import APIView
 
 from .filters import DishFilter, OrderFilter
-from .models import ALLOWED_TRANSITIONS, STATUS_CHOICES, Category, Dish, Favorite, Order, Promo
+from .models import ALLOWED_TRANSITIONS, STATUS_CHOICES, Category, Dish, Favorite, Order, OrderItem, Promo, PromoCode
 from .permissions import IsAdminOrReadOnly, IsOwnerOrAdmin
 from .serializers import (
     AiRecommendSerializer,
@@ -20,9 +26,12 @@ from .serializers import (
     OrderCreateSerializer,
     OrderSerializer,
     ProfileSerializer,
+    PromoAdminSerializer,
+    PromoCodeAdminSerializer,
     PromoSerializer,
     RegisterSerializer,
-    UserSerializer,
+    UserAdminSerializer,
+    UserBanSerializer,
 )
 
 
@@ -297,6 +306,7 @@ class OrderStatusView(generics.UpdateAPIView):
     """Смена статуса заказа. Только для администратора."""
 
     serializer_class = OrderSerializer
+    permission_classes = (IsAdminUser,)
 
     def get_queryset(self):
         """Админ может менять статус любого заказа."""
@@ -352,6 +362,157 @@ class AiRecommendView(generics.GenericAPIView):
                 'dish_ids': result['dish_ids'],
                 'dishes': result['dishes'],
                 'source': result.get('source', 'fallback'),
+            },
+            status=status.HTTP_200_OK,
+        )
+
+
+# Админ — промокоды
+
+class PromoCodeAdminListView(generics.ListAPIView):
+    """Список всех промокодов (включая неактивные). Только для администратора."""
+
+    queryset = PromoCode.objects.all()
+    serializer_class = PromoCodeAdminSerializer
+    permission_classes = (IsAdminUser,)
+
+
+class PromoCodeAdminCreateView(generics.CreateAPIView):
+    """Создание промокода. Только для администратора."""
+
+    serializer_class = PromoCodeAdminSerializer
+    permission_classes = (IsAdminUser,)
+
+
+class PromoCodeAdminEditView(generics.RetrieveUpdateDestroyAPIView):
+    """Изменение и удаление промокода. Только для администратора."""
+
+    queryset = PromoCode.objects.all()
+    serializer_class = PromoCodeAdminSerializer
+    permission_classes = (IsAdminUser,)
+
+
+# Админ — акции
+
+class PromoAdminListView(generics.ListAPIView):
+    """Список всех акций (включая отключённые). Только для администратора."""
+
+    queryset = Promo.objects.select_related('dish', 'dish__category').all()
+    serializer_class = PromoAdminSerializer
+    permission_classes = (IsAdminUser,)
+
+
+class PromoAdminCreateView(generics.CreateAPIView):
+    """Создание акции. Только для администратора."""
+
+    serializer_class = PromoAdminSerializer
+    permission_classes = (IsAdminUser,)
+
+
+class PromoAdminEditView(generics.RetrieveUpdateDestroyAPIView):
+    """Изменение и удаление акции (включая фото). Только для администратора."""
+
+    queryset = Promo.objects.select_related('dish', 'dish__category').all()
+    serializer_class = PromoAdminSerializer
+    permission_classes = (IsAdminUser,)
+
+
+# Админ — категории
+
+class CategoryEditView(generics.RetrieveUpdateDestroyAPIView):
+    """Изменение и удаление категории. Только для администратора."""
+
+    queryset = Category.objects.all()
+    serializer_class = CategorySerializer
+    permission_classes = (IsAdminUser,)
+
+    def destroy(self, request, *args, **kwargs):
+        """Не даём удалить категорию, к которой привязаны блюда."""
+        category = self.get_object()
+        if category.dishes.exists():
+            return Response(
+                {'detail': 'Сначала удали или перенеси блюда этой категории'},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        return super().destroy(request, *args, **kwargs)
+
+
+# Админ — пользователи
+
+class UserAdminListView(generics.ListAPIView):
+    """Список пользователей. Только для администратора."""
+
+    queryset = get_user_model().objects.order_by('-date_joined')
+    serializer_class = UserAdminSerializer
+    permission_classes = (IsAdminUser,)
+
+
+class UserAdminBanView(generics.UpdateAPIView):
+    """Блокировка и разблокировка пользователя (is_active). Только для администратора."""
+
+    queryset = get_user_model().objects.all()
+    serializer_class = UserBanSerializer
+    permission_classes = (IsAdminUser,)
+
+    def update(self, request, *args, **kwargs):
+        """Меняет флаг is_active, запрет банить самого себя."""
+        serializer = self.get_serializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        user = self.get_object()
+        if user == request.user:
+            return Response(
+                {'detail': 'Нельзя заблокировать самого себя'},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        user.is_active = serializer.validated_data['is_active']
+        user.save(update_fields=['is_active'])
+        return Response(UserAdminSerializer(user).data, status=status.HTTP_200_OK)
+
+
+# Админ — статистика
+
+class StatsDashboardView(APIView):
+    """Сводка для дэшборда: заказы и выручка за сегодня, статусы, топ блюд."""
+
+    permission_classes = (IsAdminUser,)
+
+    def get(self, request):
+        """Собирает числа по БД: сегодня, по статусам, топ-5 блюд."""
+        today = timezone.localdate()
+        today_orders = Order.objects.filter(created_at__date=today)
+
+        revenue = today_orders.exclude(status='cancelled').aggregate(
+            total=Sum('total_price'),
+        )['total']
+        if revenue is None:
+            revenue = Decimal('0')
+
+        status_counts = {code: 0 for code, _ in STATUS_CHOICES}
+        for row in Order.objects.values('status').annotate(count=Count('id')):
+            status_counts[row['status']] = row['count']
+
+        top_rows = (
+            OrderItem.objects
+            .values('dish__name')
+            .annotate(
+                qty=Sum('quantity'),
+                revenue=Sum(
+                    F('quantity') * F('price_at_order'),
+                    output_field=DecimalField(max_digits=12, decimal_places=2),
+                ),
+            )
+            .order_by('-qty')[:5]
+        )
+        top_dishes = [
+            {'name': row['dish__name'], 'qty': row['qty'] or 0, 'revenue': str(row['revenue'] or 0)}
+            for row in top_rows
+        ]
+
+        return Response(
+            {
+                'today': {'orders': today_orders.count(), 'revenue': str(revenue)},
+                'status_counts': status_counts,
+                'top_dishes': top_dishes,
             },
             status=status.HTTP_200_OK,
         )
