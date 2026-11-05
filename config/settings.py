@@ -255,7 +255,7 @@ CORS_ALLOWED_ORIGINS = [o.strip() for o in _cors_env.split(',') if o.strip()]
 CORS_ALLOW_ALL_ORIGINS = DEBUG and not CORS_ALLOWED_ORIGINS
 
 # AI — цепочка с автопереключением (бесплатные ключи)
-# Порядок: opencode (muse-spark) → gemini → groq → fallback
+# Порядок: opencode (muse-spark) → gemini → fallback
 GEMINI_API_KEY = os.getenv('GEMINI_API_KEY', '')
 GEMINI_MODEL = os.getenv('GEMINI_MODEL', 'gemini-1.5-flash')
 
@@ -266,13 +266,8 @@ OPENCODE_BASE_URL = os.getenv('OPENCODE_BASE_URL', 'https://api.opencode.ai/v1')
 OPENCODE_MODEL = os.getenv('OPENCODE_MODEL', 'opencode/muse-spark-1.2-contributor-free')
 OPENCODE_MODELS = [m.strip() for m in os.getenv('OPENCODE_MODELS', OPENCODE_MODEL).split(',') if m.strip()]
 
-# Groq — бесплатный llama (альтернатива)
-GROQ_API_KEY = os.getenv('GROQ_API_KEY', '')
-GROQ_MODEL = os.getenv('GROQ_MODEL', 'qwen/qwen3.8-27b')
-GROQ_BASE_URL = os.getenv('GROQ_BASE_URL', 'https://api.groq.com/openai/v1')
-
-# Порядок провайдеров — можно менять в .env: AI_PROVIDER_ORDER=opencode,gemini,groq,fallback
-AI_PROVIDER_ORDER = [p.strip() for p in os.getenv('AI_PROVIDER_ORDER', 'opencode,gemini,groq,fallback').split(',') if p.strip()]
+# Порядок провайдеров — можно менять в .env: AI_PROVIDER_ORDER=opencode,gemini,fallback
+AI_PROVIDER_ORDER = [p.strip() for p in os.getenv('AI_PROVIDER_ORDER', 'opencode,gemini,fallback').split(',') if p.strip()]
 
 # ==== Продакшен-настройки безопасности (включаются только при DEBUG=False) ====
 

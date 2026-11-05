@@ -1,4 +1,4 @@
-"""AI-помощник: цепочка OpenCode -> Gemini -> Groq -> fallback + кэш + FAQ."""
+"""AI-помощник: цепочка OpenCode -> Gemini -> fallback + кэш + FAQ."""
 
 import json
 import logging
@@ -194,7 +194,7 @@ def _build_prompt(query: str, menu: list[dict]) -> str:
 
 
 def _call_openai_compatible(query: str, menu: list[dict], base_url: str, api_key: str, model: str, source_name: str) -> dict | None:
-    """Универсальный вызов OpenAI-совместимого API (OpenCode, Groq, OpenAI, OpenRouter)."""
+    """Универсальный вызов OpenAI-совместимого API (OpenCode, OpenAI, OpenRouter)."""
     if not api_key or not base_url:
         return None
     prompt = _build_prompt(query, menu)
@@ -285,19 +285,8 @@ def _call_opencode(query: str, menu: list[dict]) -> dict | None:
     return None
 
 
-def _call_groq(query: str, menu: list[dict]) -> dict | None:
-    """Groq llama."""
-    return _call_openai_compatible(
-        query, menu,
-        base_url=getattr(settings, 'GROQ_BASE_URL', 'https://api.groq.com/openai/v1'),
-        api_key=getattr(settings, 'GROQ_API_KEY', ''),
-        model=getattr(settings, 'GROQ_MODEL', 'llama-3.1-8b-instant'),
-        source_name='groq',
-    )
-
-
 def recommend(query: str) -> dict:
-    """Цепочка: opencode → gemini → groq → fallback + кэш на 1 час."""
+    """Цепочка: opencode → gemini → fallback + кэш на 1 час."""
     import hashlib
     query = (query or '').strip()
     if not query:
@@ -320,11 +309,10 @@ def recommend(query: str) -> dict:
         logger.info(f"AI cache hit for '{query[:60]}'")
         return cached
 
-    order = getattr(settings, 'AI_PROVIDER_ORDER', ['opencode', 'gemini', 'groq', 'fallback'])
+    order = getattr(settings, 'AI_PROVIDER_ORDER', ['opencode', 'gemini', 'fallback'])
     callers = {
         'opencode': _call_opencode,
         'gemini': _call_gemini,
-        'groq': _call_groq,
     }
 
     result = None

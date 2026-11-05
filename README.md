@@ -70,7 +70,7 @@
 | 📍 | **Адрес** | `street`+`house`+`entrance`+`floor`+`apartment` (последние 3 опционально) | `api/models.py:159` |
 | 🔄 | **Статусы** | `created→confirmed→cooking→delivering→delivered / cancelled`, по матрице переходов | `api/models.py:9` `api/views.py:198` |
 | ✉️ | **Уведомления** | Письмо админу о новом заказе (`on_commit`, smtp) | `api/signals.py:13` |
-| 🤖 | **AI-подбор** | Рекомендации блюд: opencode → gemini → groq → rule-fallback + кэш | `api/services/ai.py` |
+| 🤖 | **AI-подбор** | Рекомендации блюд: opencode → gemini → rule-fallback + кэш | `api/services/ai.py` |
 | 👤 | **Пользователи** | `User(AbstractUser)` логин — `phone` `PhoneNumberField` + `photo` | `api/models.py:18` |
 | 🔐 | **JWT** | `register/login/logout` + `token/refresh` + `blacklist` | `api/views.py:22` |
 | 🛡️ | **Права** | `IsAdminOrReadOnly` (меню), `IsOwnerOrAdmin` (заказы) | `api/permissions.py:7` |
@@ -128,7 +128,7 @@ delivery/
 │   ├── permissions.py   # IsAdminOrReadOnly / IsOwnerOrAdmin
 │   ├── admin.py         # 8 моделей в админке
 │   ├── tests.py         # 44 теста
-│   ├── services/ai.py   # AI-подбор блюд: opencode → gemini → groq → fallback + кэш
+│   ├── services/ai.py   # AI-подбор блюд: opencode → gemini → fallback + кэш
 │   ├── signals.py       # email админу о новом заказе (transaction.on_commit)
 │   └── management/commands/demo_data.py
 ├── admin/               # админ-панель: React + Vite + TanStack Query (дев: npm run dev, прод: /panel/)

@@ -393,7 +393,6 @@ class AiRecommendTests(ApiTestCase):
     AI_OFF = {
         'OPENCODE_API_KEY': '',
         'GEMINI_API_KEY': '',
-        'GROQ_API_KEY': '',
     }
 
     def make_dish(self, name, ingredients='', **kwargs):
