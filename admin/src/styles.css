@@ -1,4 +1,29 @@
-/* Базовая тёмная админка. */
+/* Админка «Онигири» — черно-золотая премиум-тема (референс AmirDev). */
+
+@import url('https://cdn.jsdelivr.net/fontsource/css/manrope@latest/700.css');
+@import url('https://cdn.jsdelivr.net/fontsource/css/manrope@latest/800.css');
+@import url('https://cdn.jsdelivr.net/fontsource/css/inter@latest/400.css');
+@import url('https://cdn.jsdelivr.net/fontsource/css/inter@latest/500.css');
+@import url('https://cdn.jsdelivr.net/fontsource/css/inter@latest/600.css');
+
+:root {
+  --bg: #0a0a0a;
+  --bg2: #141414;
+  --bg3: #101013;
+  --gold: #d4af37;
+  --gold-l: #f4e4a6;
+  --gold-d: #9a7b24;
+  --text: #ffffff;
+  --muted: #a0a0a0;
+  --ok: #4caf50;
+  --err: #f44336;
+  --line: rgba(255, 255, 255, 0.07);
+  --line-g: rgba(212, 175, 55, 0.28);
+  --grad: linear-gradient(135deg, #d4af37 0%, #f4e4a6 100%);
+  --r: 20px;
+  --font-h: 'Manrope', system-ui, sans-serif;
+  --font-b: 'Inter', system-ui, sans-serif;
+}
 
 * {
   box-sizing: border-box;
@@ -6,15 +31,32 @@
 
 body {
   margin: 0;
-  font-family: 'Segoe UI', system-ui, sans-serif;
-  background: #101623;
-  color: #e8edf5;
+  font-family: var(--font-b);
+  background: var(--bg);
+  color: var(--text);
   font-size: 15px;
+  line-height: 1.6;
+  -webkit-font-smoothing: antialiased;
 }
 
 a {
   color: inherit;
   text-decoration: none;
+}
+
+h1,
+h2,
+h3 {
+  font-family: var(--font-h);
+  letter-spacing: -0.01em;
+}
+
+h2 {
+  font-weight: 800;
+}
+
+::selection {
+  background: rgba(212, 175, 55, 0.35);
 }
 
 /* Каркас: слева меню, справа контент */
@@ -26,7 +68,8 @@ a {
 .layout aside {
   width: 230px;
   flex-shrink: 0;
-  background: #16202f;
+  background: var(--bg2);
+  border-right: 1px solid var(--line);
   padding: 24px 16px;
   display: flex;
   flex-direction: column;
@@ -35,7 +78,12 @@ a {
 
 .layout h1 {
   margin: 0;
-  font-size: 22px;
+  font-size: 24px;
+  font-weight: 800;
+  background: linear-gradient(100deg, #c99b30 0%, #f4e4a6 55%, #c99b30 100%);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
 }
 
 .layout nav {
@@ -48,17 +96,26 @@ a {
 .layout nav a {
   padding: 10px 12px;
   border-radius: 10px;
-  color: #9fb0c8;
+  border-left: 2px solid transparent;
+  color: var(--muted);
+  font-weight: 500;
+  transition: color 0.25s, background 0.25s, border-color 0.25s;
 }
 
-.layout nav a.active,
-.layout nav a:hover {
-  background: #1f2d42;
-  color: #ffffff;
+.layout nav a:hover,
+.layout nav a.active {
+  background: rgba(212, 175, 55, 0.1);
+  border-left-color: var(--gold);
+  color: var(--gold-l);
 }
 
 .layout nav a.active {
   font-weight: 600;
+}
+
+.layout nav a.active::after {
+  content: '';
+  display: inline-block;
 }
 
 .layout main {
@@ -68,39 +125,50 @@ a {
 }
 
 .muted {
-  color: #9fb0c8;
+  color: var(--muted);
 }
 
 .small {
   font-size: 13px;
 }
 
-/* Заголовки и карточки */
-h2 {
-  margin: 0 0 20px;
-}
-
+/* Вход в панель */
 .login {
   max-width: 360px;
   margin: 12vh auto;
-  background: #16202f;
+  background: var(--bg2);
+  border: 1px solid var(--line-g);
+  box-shadow: 0 40px 90px rgba(0, 0, 0, 0.65), 0 0 60px rgba(212, 175, 55, 0.12);
   padding: 32px;
-  border-radius: 16px;
+  border-radius: 24px;
   display: flex;
   flex-direction: column;
   gap: 16px;
+  animation: login-in 0.5s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+@keyframes login-in {
+  from {
+    opacity: 0;
+    transform: translateY(26px) scale(0.97);
+  }
 }
 
 .login h1 {
   margin: 0 0 8px;
-  font-size: 26px;
+  font-size: 28px;
+  font-weight: 800;
+  background: var(--grad);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
 }
 
 form label,
 .field label {
   display: block;
   font-size: 13px;
-  color: #9fb0c8;
+  color: var(--muted);
   margin-bottom: 4px;
 }
 
@@ -110,10 +178,12 @@ textarea {
   width: 100%;
   padding: 10px 12px;
   border-radius: 10px;
-  border: 1px solid #2a3a52;
-  background: #0d131d;
-  color: #e8edf5;
+  border: 1px solid #2a2a31;
+  background: #17171c;
+  color: var(--text);
   font-size: 14px;
+  font-family: inherit;
+  transition: border-color 0.25s, box-shadow 0.25s;
 }
 
 input[type='checkbox'] {
@@ -121,23 +191,29 @@ input[type='checkbox'] {
 }
 
 input:focus,
-select:focus {
+select:focus,
+textarea:focus {
   outline: none;
-  border-color: #4a90d9;
+  border-color: var(--line-g);
+  box-shadow: 0 0 0 3px rgba(212, 175, 55, 0.15);
 }
 
 button {
   padding: 9px 16px;
   border-radius: 10px;
-  border: 1px solid #2a3a52;
-  background: #1f2d42;
-  color: #e8edf5;
+  border: 1px solid #2a2a31;
+  background: #17171c;
+  color: var(--text);
   cursor: pointer;
   font-size: 14px;
+  font-weight: 500;
+  transition: background 0.25s, border-color 0.25s, transform 0.25s, box-shadow 0.25s;
 }
 
 button:hover:not(:disabled) {
-  background: #283951;
+  background: rgba(212, 175, 55, 0.1);
+  border-color: var(--line-g);
+  color: var(--gold-l);
 }
 
 button:disabled {
@@ -146,17 +222,26 @@ button:disabled {
 }
 
 button.primary {
-  background: #d95454;
-  border-color: #d95454;
-  color: #fff;
+  background: var(--grad);
+  border-color: transparent;
+  color: #0a0a0a;
+  font-weight: 700;
+  box-shadow: 0 10px 34px rgba(212, 175, 55, 0.28);
 }
 
 button.primary:hover:not(:disabled) {
-  background: #e56666;
+  background: var(--grad);
+  color: #0a0a0a;
+  transform: translateY(-2px);
+  box-shadow: 0 16px 44px rgba(212, 175, 55, 0.42);
 }
 
 button.danger {
-  color: #ffb1b1;
+  color: #f08a8a;
+}
+
+.layout aside button {
+  margin-top: auto;
 }
 
 /* Таблицы */
@@ -168,21 +253,22 @@ table {
 th {
   text-align: left;
   font-size: 12px;
+  font-weight: 600;
   text-transform: uppercase;
-  letter-spacing: 0.5px;
-  color: #9fb0c8;
+  letter-spacing: 0.06em;
+  color: var(--muted);
   padding: 8px 10px;
-  border-bottom: 1px solid #2a3a52;
+  border-bottom: 1px solid var(--line-g);
 }
 
 td {
   padding: 10px;
-  border-bottom: 1px solid #1c2739;
+  border-bottom: 1px solid var(--line);
   vertical-align: top;
 }
 
 tr:hover td {
-  background: #16202f;
+  background: rgba(212, 175, 55, 0.06);
 }
 
 /* Значки статусов и прочие плашки */
@@ -191,22 +277,26 @@ tr:hover td {
   padding: 3px 10px;
   border-radius: 999px;
   font-size: 12px;
-  background: #1f2d42;
-  color: #b8c6db;
+  background: #17171c;
+  border: 1px solid #2a2a31;
+  color: var(--muted);
 }
 
 .badge.ok {
-  background: #143322;
+  background: rgba(76, 175, 80, 0.12);
+  border-color: rgba(76, 175, 80, 0.32);
   color: #7fd6a2;
 }
 
 .badge.warn {
-  background: #3a2a14;
-  color: #f0c674;
+  background: rgba(212, 175, 55, 0.12);
+  border-color: var(--line-g);
+  color: var(--gold-l);
 }
 
 .badge.bad {
-  background: #3a1414;
+  background: rgba(244, 67, 54, 0.12);
+  border-color: rgba(244, 67, 54, 0.3);
   color: #f08a8a;
 }
 
@@ -219,22 +309,36 @@ tr:hover td {
 }
 
 .card {
-  background: #16202f;
-  border-radius: 14px;
+  background: var(--bg2);
+  border: 1px solid #232323;
+  border-radius: 16px;
   padding: 20px 24px;
   min-width: 200px;
+  transition: transform 0.3s, box-shadow 0.3s, border-color 0.3s;
+}
+
+.card:hover {
+  transform: translateY(-4px);
+  border-color: var(--line-g);
+  box-shadow: 0 18px 50px rgba(212, 175, 55, 0.12);
 }
 
 .card .num {
+  font-family: var(--font-h);
   font-size: 32px;
-  font-weight: 700;
+  font-weight: 800;
   margin-top: 6px;
+  background: var(--grad);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
 }
 
 /* Формы поверх страницы */
 .panel {
-  background: #16202f;
-  border-radius: 14px;
+  background: var(--bg2);
+  border: 1px solid #232323;
+  border-radius: 16px;
   padding: 20px;
   margin-bottom: 20px;
   display: flex;
@@ -266,6 +370,7 @@ tr:hover td {
   height: 40px;
   object-fit: cover;
   border-radius: 8px;
+  border: 1px solid var(--line-g);
 }
 
 .toolbar {
@@ -278,4 +383,13 @@ tr:hover td {
 
 .toolbar input {
   max-width: 220px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.001s !important;
+    transition-duration: 0.001s !important;
+  }
 }

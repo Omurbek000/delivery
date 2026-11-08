@@ -1,0 +1,215 @@
+/* Черно-золотой: глобальная тема (токены + анимации) из референса AmirDev.
+   Ничего не трогает в интерфейсе, пока не добавлен класс .theme-black-gold. */
+
+@import url('https://cdn.jsdelivr.net/fontsource/css/manrope@latest/700.css');
+@import url('https://cdn.jsdelivr.net/fontsource/css/manrope@latest/800.css');
+@import url('https://cdn.jsdelivr.net/fontsource/css/inter@latest/400.css');
+@import url('https://cdn.jsdelivr.net/fontsource/css/inter@latest/500.css');
+@import url('https://cdn.jsdelivr.net/fontsource/css/inter@latest/600.css');
+
+.theme-black-gold {
+  --bg: #0a0a0a;
+  --bg2: #141414;
+  --bg3: #101013;
+  --gold: #d4af37;
+  --gold-l: #f4e4a6;
+  --gold-d: #9a7b24;
+  --text: #ffffff;
+  --muted: #a0a0a0;
+  --ok: #4caf50;
+  --err: #f44336;
+  --line: rgba(255, 255, 255, 0.07);
+  --line-g: rgba(212, 175, 55, 0.28);
+  --grad: linear-gradient(135deg, #d4af37 0%, #f4e4a6 100%);
+  --r: 20px;
+  --font-h: 'Manrope', system-ui, sans-serif;
+  --font-b: 'Inter', system-ui, sans-serif;
+}
+
+/* База внутри темы */
+.theme-black-gold {
+  background: var(--bg);
+  color: var(--text);
+  font-family: var(--font-b);
+  font-size: 16px;
+  line-height: 1.65;
+}
+.theme-black-gold a { color: inherit; text-decoration: none; }
+.theme-black-gold img, .theme-black-gold svg { display: block; max-width: 100%; }
+.theme-black-gold ::selection { background: rgba(212, 175, 55, 0.35); }
+
+/* Золотой градиентный текст */
+.theme-black-gold .grad-text {
+  background: var(--grad);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+}
+
+/* Прогресс-бар прокрутки */
+.theme-black-gold .ag-progress {
+  position: fixed; top: 0; left: 0; height: 2px; width: 0;
+  background: var(--grad);
+  z-index: 120;
+  box-shadow: 0 0 12px rgba(212, 175, 55, 0.6);
+}
+
+/* Кнопки */
+.theme-black-gold .btn {
+  display: inline-flex; align-items: center; justify-content: center; gap: 10px;
+  padding: 15px 26px; border-radius: 14px;
+  font-weight: 600; font-size: 15px;
+  transition: transform 0.25s, box-shadow 0.25s, background 0.25s, border-color 0.25s;
+  white-space: nowrap;
+}
+.theme-black-gold .btn-gold {
+  background: var(--grad); color: var(--bg);
+  box-shadow: 0 10px 34px rgba(212, 175, 55, 0.28);
+}
+.theme-black-gold .btn-gold:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 16px 44px rgba(212, 175, 55, 0.42);
+}
+.theme-black-gold .btn-ghost {
+  border: 1px solid var(--line-g);
+  color: var(--gold-l);
+  background: rgba(212, 175, 55, 0.04);
+}
+.theme-black-gold .btn-ghost:hover {
+  background: rgba(212, 175, 55, 0.12);
+  transform: translateY(-2px);
+}
+.theme-black-gold .btn-sm { padding: 11px 18px; font-size: 14px; border-radius: 12px; }
+
+/* Появление при скролле */
+.theme-black-gold [data-reveal] {
+  opacity: 0; transform: translateY(28px);
+  transition: opacity 0.6s ease, transform 0.6s ease;
+}
+.theme-black-gold [data-reveal].in { opacity: 1; transform: none; }
+
+/* Пульсирующая точка (бейдж «онлайн») */
+.theme-black-gold .ag-dot {
+  width: 7px; height: 7px; border-radius: 50%;
+  background: var(--ok); box-shadow: 0 0 10px var(--ok);
+  animation: ag-pulse 2s infinite;
+}
+@keyframes ag-pulse { 50% { opacity: 0.4; } }
+
+/* Плавающие карточки: телефон и чипы */
+.theme-black-gold .ag-float { animation: ag-float 6s ease-in-out infinite; }
+@keyframes ag-float { 50% { transform: translateY(-14px); } }
+.theme-black-gold .ag-chip {
+  background: rgba(20, 20, 20, 0.9);
+  border: 1px solid var(--line-g);
+  border-radius: 14px;
+  padding: 10px 16px;
+  font-size: 13px; font-weight: 600; color: var(--gold-l);
+  box-shadow: 0 14px 40px rgba(0, 0, 0, 0.5);
+  backdrop-filter: blur(8px);
+  animation: ag-float 7s ease-in-out infinite;
+}
+
+/* Чат-симуляция: пузыри и «печатает…» */
+.theme-black-gold .ag-bubble {
+  max-width: 88%; padding: 10px 14px; border-radius: 16px;
+  font-size: 13px; line-height: 1.5;
+}
+.theme-black-gold .ag-bubble.bot {
+  background: #1a1a1f; border: 1px solid #26262c;
+  border-top-left-radius: 5px; align-self: flex-start; color: #e6e6e6;
+}
+.theme-black-gold .ag-bubble.user {
+  background: var(--grad); color: var(--bg);
+  border-top-right-radius: 5px; align-self: flex-end; font-weight: 500;
+}
+.theme-black-gold .ag-typing { display: inline-flex; gap: 4px; padding: 4px 2px; }
+.theme-black-gold .ag-typing i {
+  width: 6px; height: 6px; border-radius: 50%;
+  background: var(--gold);
+  animation: ag-typing 1.2s infinite;
+}
+.theme-black-gold .ag-typing i:nth-child(2) { animation-delay: 0.18s; }
+.theme-black-gold .ag-typing i:nth-child(3) { animation-delay: 0.36s; }
+@keyframes ag-typing { 50% { opacity: 0.25; transform: translateY(-3px); } }
+
+/* Карточки с золотым неоновым ховером */
+.theme-black-gold .ag-card {
+  background: var(--bg2);
+  border: 1px solid #232323;
+  border-radius: var(--r);
+  position: relative; overflow: hidden;
+  transition: transform 0.35s, box-shadow 0.35s, border-color 0.35s;
+}
+.theme-black-gold .ag-card::before {
+  content: '';
+  position: absolute; top: 0; left: 0; right: 0; height: 2px;
+  background: var(--grad); opacity: 0;
+  transition: opacity 0.3s;
+}
+.theme-black-gold .ag-card:hover {
+  transform: translateY(-6px) scale(1.02);
+  border-color: var(--line-g);
+  box-shadow: 0 24px 70px rgba(212, 175, 55, 0.16);
+}
+.theme-black-gold .ag-card:hover::before { opacity: 1; }
+
+/* Всплывание карточек в списках */
+.theme-black-gold .ag-pop { animation: ag-card-in 0.5s both; }
+@keyframes ag-card-in {
+  from { opacity: 0; transform: translateY(18px) scale(0.97); }
+  to { opacity: 1; transform: none; }
+}
+
+/* Тосты */
+.theme-black-gold .ag-toast {
+  background: #17171c;
+  border: 1px solid var(--line-g);
+  color: var(--gold-l);
+  padding: 12px 22px; border-radius: 100px;
+  font-size: 14px; font-weight: 500;
+  box-shadow: 0 16px 50px rgba(0, 0, 0, 0.6);
+  animation: ag-toast-in 0.35s both;
+}
+.theme-black-gold .ag-toast.out { opacity: 0; transform: translateY(10px); transition: 0.3s; }
+@keyframes ag-toast-in { from { opacity: 0; transform: translateY(14px); } }
+
+/* Модальные окна и попапы */
+.theme-black-gold .ag-pop-up { animation: ag-q-in 0.35s cubic-bezier(0.22, 1, 0.36, 1); }
+@keyframes ag-q-in { from { opacity: 0; transform: translateY(26px) scale(0.97); } }
+.theme-black-gold .ag-msg-in { animation: ag-msg-in 0.3s both; }
+@keyframes ag-msg-in { from { opacity: 0; transform: translateY(10px); } }
+
+/* Крупные цифры со счётчиком (золотой градиент) */
+.theme-black-gold .ag-stat-num {
+  font-family: var(--font-h); font-weight: 800;
+  font-size: clamp(38px, 4.6vw, 58px);
+  background: var(--grad);
+  -webkit-background-clip: text; background-clip: text;
+  color: transparent; line-height: 1.1;
+}
+
+/* Заголовки секций */
+.theme-black-gold .ag-over {
+  display: inline-block; font-size: 12.5px; font-weight: 600;
+  letter-spacing: 0.22em; text-transform: uppercase;
+  color: var(--gold); margin-bottom: 14px;
+}
+.theme-black-gold .ag-title {
+  font-family: var(--font-h); font-weight: 800;
+  font-size: clamp(28px, 4vw, 44px);
+  letter-spacing: -0.015em; line-height: 1.15; margin-bottom: 14px;
+  color: var(--text);
+}
+
+/* Отключение анимаций по доступности */
+@media (prefers-reduced-motion: reduce) {
+  .theme-black-gold *,
+  .theme-black-gold *::before,
+  .theme-black-gold *::after {
+    animation-duration: 0.001s !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.001s !important;
+  }
+  .theme-black-gold [data-reveal] { opacity: 1; transform: none; }
+}
