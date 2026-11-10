@@ -10,6 +10,7 @@ from rest_framework import generics, status
 from rest_framework.permissions import AllowAny, IsAdminUser, IsAuthenticated
 from rest_framework.response import Response
 from rest_framework.views import APIView
+from rest_framework_simplejwt.tokens import RefreshToken
 
 from .filters import DishFilter, OrderFilter
 from .models import ALLOWED_TRANSITIONS, STATUS_CHOICES, Category, Dish, Favorite, Order, OrderItem, Promo, PromoCode
@@ -32,6 +33,7 @@ from .serializers import (
     RegisterSerializer,
     UserAdminSerializer,
     UserBanSerializer,
+    UserSerializer,
 )
 
 
@@ -43,6 +45,21 @@ class RegisterView(generics.CreateAPIView):
     serializer_class = RegisterSerializer
     permission_classes = (AllowAny,)
     throttle_scope = 'login'
+
+    def create(self, request, *args, **kwargs):
+        """Создаёт пользователя и сразу возвращает токены (авто-вход после регистрации)."""
+        serializer = self.get_serializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        user = serializer.save()
+        refresh = RefreshToken.for_user(user)
+        return Response(
+            {
+                'user': UserSerializer(user, context=self.get_serializer_context()).data,
+                'access': str(refresh.access_token),
+                'refresh': str(refresh),
+            },
+            status=status.HTTP_201_CREATED,
+        )
 
 
 class CustomLoginView(generics.GenericAPIView):

@@ -15,6 +15,9 @@ from rest_framework import permissions
 # Папка со сборкой админ-панели (создаётся командой npm run build в admin/)
 ADMIN_DIST = Path(__file__).resolve().parent.parent / 'admin' / 'dist'
 
+# Папка со сборкой витрины сайта (создаётся командой npm run build в site/)
+SITE_DIST = Path(__file__).resolve().parent.parent / 'site' / 'dist'
+
 
 def admin_panel(request, sp_path=''):
     """Раздаёт собранную админ-панель по /panel/.
@@ -30,6 +33,18 @@ def admin_panel(request, sp_path=''):
         requested = ADMIN_DIST / 'index.html'  # SPA: любой путь ведёт на приложение
     if not requested.is_file():
         raise Http404('Сначала собери админ-панель: запуск npm run build в папке admin/')
+    return FileResponse(requested.open('rb'))
+
+def site_spa(request, sp_path=''):
+    """Раздаёт собранную витрину сайта по корню (/) — любой путь ведёт на SPA."""
+    requested = (SITE_DIST / sp_path).resolve()
+    # Защита от выхода за пределы папки (../ и т.п.)
+    if requested != SITE_DIST and SITE_DIST not in requested.parents:
+        raise Http404
+    if not requested.is_file():
+        requested = SITE_DIST / 'index.html'  # SPA: все пути отдаёт react-router
+    if not requested.is_file():
+        raise Http404('Сначала собери сайт: запуск npm run build в папке site/')
     return FileResponse(requested.open('rb'))
 
 
@@ -57,3 +72,9 @@ urlpatterns = [
     path('panel/<path:sp_path>', admin_panel, name='admin-panel-files'),
 ] + static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)
 # static(...) — в режиме разработки отдаёт загруженные медиа-файлы (картинки) по адресу /media/...
+
+# Витрина сайта (Vite) в самом конце: API, админка, panel, docs и media важнее.
+urlpatterns += [
+    path('', site_spa, name='site-root'),
+    path('<path:sp_path>', site_spa, name='site-spa'),
+]

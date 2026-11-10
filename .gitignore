@@ -146,8 +146,8 @@ venv.bak/
 # Rope project settings
 .ropeproject
 
-# mkdocs documentation
-/site
+# Node.js — зависимости (site/, admin/); сборки dist/ уже игнорируются выше
+node_modules/
 
 # mypy
 .mypy_cache/
